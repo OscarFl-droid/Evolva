@@ -1,98 +1,59 @@
-# EVOLVA v5 — Open-ended Niche Genetics Survival
+# EVOLVA v6 — Foundation and Feel Update
 
-EVOLVA v5 is a major systems rebuild focused on ecological survival, genotype-to-phenotype development and open-ended lineage change.
+Version 6 replaces the permanent directional controls with direct interaction and establishes a shared survival simulation for the player and all other organisms.
 
-## Major version 5 systems
+## Interaction
 
-### Behavioural modes
-- **REST is a toggle.** While active, energy and health recover continuously.
-- Water consumption during rest is drastically reduced.
-- Rest stops manual movement and autonomous foraging.
-- Rest automatically ends when energy and health are nearly full.
-- **FORAGE is a toggle.** The organism moves autonomously every three seconds.
-- Forage seeks resources and edible prey while avoiding larger predators.
-- Sensing genes extend avoidance and improve target selection.
+- Tap anywhere in the world to move there.
+- Hold and drag to continue directing movement.
+- Double-tap expands the visible field.
+- Long-press near another organism to inspect its condition and current behaviour.
+- FORAGE delegates immediate survival decisions to the organism.
+- REST enters a low-consumption recovery state.
+- EVOLVE appears permanently but only succeeds when sufficient ecological experience has accumulated.
 
-### Automatic metabolism and biome resource ecology
-- Energy-bearing resources are metabolised automatically when collected and energy is below full.
-- When energy is full, the resource is stored in the backpack.
-- Stored resources can be invested deliberately into a developmental path.
-- Every biome has a distinct weighted abundance profile.
-- Examples:
-  - Tidal Pool: minerals, osmolytes and pigments
-  - Fungal Forest: spores, amino acids and sugars
-  - Wind Desert: pigments and minerals, but little food
-  - Acid Marsh: abundant nutrients with toxin risk
-  - Frozen Basin: lipid-rich but sparse
-  - Hydrothermal Shelf: mineral-rich and sugar-poor
+## Shared organism simulation
 
-### Growth and agar-style camera scaling
-- **DIVIDE** converts energy and protein reserves into biomass.
-- Every growth event increases physical size.
-- The biome camera progressively zooms out as biomass rises.
-- Larger organisms therefore perceive a wider ecological field.
-- Mass also changes movement speed, predation risk and prey availability.
+The player and non-player organisms use the same locomotor basis and the same broad survival variables:
 
-### Genotype network
-The former flat trait list has been replaced by seven connected developmental paths:
+- energy
+- water
+- health
+- biomass
+- hunger
+- fear
+- curiosity
+- aggression
+- genes
+- current behavioural state
 
-- Metabolism
-- Structure
-- Growth
-- Sensing
-- Defence
-- Homeostasis
-- Symbiosis
+Non-player organisms may forage, rest, inspect, ignore, hunt or flee. Predation is a risk/reward decision based on hunger, relative size, health, injury risk and nearby alternatives.
 
-Collected items push different paths. Thresholds make functions available, while EVOLVE fixes an individual gain or loss. The active genotype generates:
+## Genotype to phenotype
 
-- sprite anatomy
+Collected materials are assimilated automatically and bias seven developmental paths:
+
 - metabolism
-- trophic mode
-- movement
-- resource use
-- water balance
-- damage resistance
-- predator avoidance
-- ecological niche fit
-- future evolution direction
+- structure
+- growth
+- sensing
+- defence
+- homeostasis
+- symbiosis
 
-### Incremental evolution
-- EVOLVE changes one heritable function at a time.
-- Most events are gains of a function supported by the current build path.
-- Poor niche fit increases the chance of loss-of-function evolution.
-- Rare variants can appear at low frequency.
-- Open-ended branch names are generated after the defined thresholds are exhausted.
-- Each fixed gene is expressed in the organism's visible sprite where applicable.
+Evolution fixes one supported function at a time. Fixed genes alter physiology, ecological fit, movement, water use, defence and visible anatomy.
 
-### Dynamic predators and prey
-- Every biome contains prey and predators.
-- Non-player organisms spontaneously gain or lose mass and traits.
-- Prey can be food, competitors or sources of ecological teaching.
-- Predators can reduce health and biomass.
-- Severe attacks can remove an evolved function.
-- Small predators can be repelled or consumed by suitable offensive phenotypes.
-- Risk and reward scale with relative biomass and genotype.
+## GitHub Pages update
 
-## Updating GitHub Pages
+Replace all repository files with the contents of this package:
 
-Replace every file in the repository root with this release:
+- index.html
+- styles.css
+- game.js
+- manifest.webmanifest
+- sw.js
+- README.md
+- .nojekyll
+- icons/icon.svg
 
-- `index.html`
-- `styles.css`
-- `game.js`
-- `manifest.webmanifest`
-- `sw.js`
-- `.nojekyll`
-- `README.md`
-- `icons/icon.svg`
-
-Do not upload the outer `evolva-github-v5` folder itself. Upload its contents.
-
-The cache identifier is `evolva-v5`; the new service worker deletes older caches during activation.
-
-After deployment, close the old Safari tab and reopen:
-
-`https://oscarfl-droid.github.io/evolva/`
-
-Version 4 saves are imported into the new genotype model where possible.
+The service-worker cache is `evolva-v6`. Close the old Safari tab after deployment and reopen the GitHub Pages URL.
