@@ -6,15 +6,15 @@
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v7.1</title>
-<link rel="manifest" href="manifest.webmanifest?v=7.1">
+<title>EVOLVA v7.3</title>
+<link rel="manifest" href="manifest.webmanifest?v=7.3">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=7.1">
+<link rel="stylesheet" href="styles.css?v=7.3">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small>v7.1</small></h1>
+    <h1>EVOLVA <small>v7.3</small></h1>
     <p class="tag">LINEAGE ENGINE</p>
     <p>Guide one lineage through ecology, nutrition, behaviour and major evolutionary epochs.</p>
     <button id="continue" class="primary">CONTINUE LINEAGE</button>
@@ -53,6 +53,7 @@
 
     <section id="epochForecastStage" hidden>
       <div id="pressureSummary" class="pressure-summary"></div>
+      <div id="epochAtlasHint" class="epoch-atlas-hint"></div>
       <h2>LIKELY EVOLUTIONARY OUTCOMES</h2>
       <div id="forecastChoices" class="forecast-choices"></div>
       <button id="backToFeedBtn">CHANGE NUTRITION</button>
@@ -63,7 +64,7 @@
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small>v7.1</small></h1>
+      <h1>EVOLVA <small>v7.3</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -95,16 +96,16 @@
     <nav>
       <button class="tab active" data-tab="lineage">LINEAGE</button>
       <button class="tab" data-tab="pack">PACK</button>
-      <button class="tab" data-tab="atlas">ATLAS</button>
       <button class="tab" data-tab="ecology">ECOLOGY</button>
       <button class="tab" data-tab="history">HISTORY</button>
     </nav>
 
     <div id="lineageTab" class="tab-content active">
-      <div class="lineage-banner">
+      <div class="lineage-topbar">
         <div>
           <span id="originLabel">UNFORMED ANCESTOR</span>
           <b id="bodyPlanLabel">SIMPLE VESICLE</b>
+          <small id="lineageMeta">Generation 1 · Epoch 0</small>
         </div>
         <div class="level-badge"><small>LEVEL</small><strong id="lineageLevel">1</strong></div>
       </div>
@@ -115,45 +116,50 @@
         <small id="epochHint">Next major evolution at level 5</small>
       </div>
 
-      <div class="attribute-header">
+      <div class="atlas-toolbar">
         <div>
-          <h2>CORE BIOLOGICAL AXES</h2>
-          <p>Emergent capacity shaped by genes, anatomy and adaptation.</p>
+          <h2>LIVING GENOME ATLAS</h2>
+          <p id="atlasSummary">Your lineage is the path through this developmental landscape.</p>
+        </div>
+        <div class="atlas-tools">
+          <button id="atlasHomeBtn">◎</button>
+          <button id="atlasMinusBtn">−</button>
+          <button id="atlasPlusBtn">+</button>
+        </div>
+      </div>
+
+      <div id="livingAtlas" class="living-atlas">
+        <canvas id="atlasCanvas" width="860" height="720"></canvas>
+        <div id="atlasTooltip" class="atlas-tooltip" hidden></div>
+        <div class="atlas-legend">
+          <span><i class="owned"></i> fixed</span>
+          <span><i class="available"></i> accessible</span>
+          <span><i class="pressured"></i> pressured</span>
+          <span><i class="locked"></i> distant</span>
+        </div>
+      </div>
+
+      <div class="attribute-strip-header">
+        <div>
+          <h2>DERIVED BIOLOGICAL CAPACITIES</h2>
+          <p>Outputs of anatomy, adaptation and developmental history.</p>
         </div>
         <b id="adaptPointLabel">0 AP</b>
       </div>
-      <div id="attributeGrid" class="attribute-grid"></div>
+      <div id="attributeStrip" class="attribute-strip"></div>
 
-      <h2>ACTIVE PHENOTYPE</h2>
-      <div id="phenotypeCards" class="cards compact"></div>
-
-      <h2>RECENT SELECTION PRESSURES</h2>
-      <div id="pressureBars" class="pressure-bars"></div>
+      <details class="lineage-details">
+        <summary>Phenotype and selection pressures</summary>
+        <h2>ACTIVE PHENOTYPE</h2>
+        <div id="phenotypeCards" class="cards compact"></div>
+        <h2>RECENT SELECTION PRESSURES</h2>
+        <div id="pressureBars" class="pressure-bars"></div>
+      </details>
     </div>
 
     <div id="packTab" class="tab-content">
       <p class="note">Surplus resources enter the backpack. Tap to metabolise immediately; hold resources for the next five-level evolution to bias its outcome.</p>
       <div id="inventoryGrid" class="inventory-grid"></div>
-    </div>
-
-    <div id="atlasTab" class="tab-content">
-      <div class="atlas-header">
-        <div>
-          <h2>GENOME ATLAS</h2>
-          <p id="atlasSummary">Biological innovations emerge from prerequisites and selection.</p>
-        </div>
-        <select id="atlasFilter">
-          <option value="all">ALL PATHS</option>
-          <option value="power">POWER</option>
-          <option value="mobility">MOBILITY</option>
-          <option value="resilience">RESILIENCE</option>
-          <option value="cognition">COGNITION</option>
-          <option value="adaptability">ADAPTABILITY</option>
-          <option value="communication">COMMUNICATION</option>
-          <option value="innovation">INNOVATION</option>
-        </select>
-      </div>
-      <div id="atlasGrid" class="atlas-grid"></div>
     </div>
 
     <div id="ecologyTab" class="tab-content">
@@ -170,6 +176,6 @@
   <footer><span id="saveStatus">autosaving</span></footer>
 </main>
 
-<script src="game.js?v=7.1" defer></script>
+<script src="game.js?v=7.3" defer></script>
 </body>
 </html>

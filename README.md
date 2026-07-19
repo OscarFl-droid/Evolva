@@ -1,31 +1,23 @@
-# EVOLVA v7.1 — Lineage Stability Audit
+# EVOLVA v7.3 — Atlas Reliability and Mobile Fixes
 
-This release repairs progression, simulation and Atlas-effect faults identified in v7.
+This build is a troubleshooting release for v7.2.
 
-## Major fixes
+## Fixed
 
-- Evolution screens now pause the ecosystem.
-- Multiple level-5 milestones are queued rather than collapsed into one event.
-- Multiple copies of the same backpack resource can be committed to an epoch.
-- Forecast scores are calculated once before sorting.
-- Locked or prerequisite-incompatible Atlas nodes can no longer be chosen.
-- A biological consolidation fallback prevents an epoch dead-end when no anatomical node is accessible.
-- Epoch choices are validated against the displayed forecast.
-- v7 saves migrate into the queued-epoch state model.
+- Added true two-finger pinch zoom on the Living Genome Atlas.
+- Zoom now preserves the point beneath the gesture or mouse cursor.
+- Atlas panning is bounded so the graph cannot be permanently lost off-screen.
+- Recenter now follows the current fixed lineage.
+- Fixed several overlapping nodes in the compact mobile layout.
+- Added central links from the organism to fixed basal innovations.
+- Improved node hit areas and tooltip placement on narrow screens.
+- Tooltips now state both missing prerequisites and unmet biological-axis thresholds.
+- Atlas rendering is throttled and stops while another tab is active, reducing iPhone battery use and lag.
+- Save camera values are validated to prevent a blank Atlas after malformed or older saves.
+- Unknown/deprecated genes and malformed arrays are filtered during save migration.
+- New Lineage and Restart now clear all v7-series save keys consistently.
+- Evolution forecasts now explicitly show which Atlas regions were illuminated by nutrition, biome and behavioural pressure.
+- Progression changes immediately invalidate and redraw the Atlas.
+- Updated cache isolation to `evolva-v7-3`.
 
-## Ecology and trait fixes
-
-- NPCs now complete foraging, recover while resting and hunt each other.
-- Feeding Groove increases resource energy yield.
-- Pseudopods improve resource experience.
-- Surface Exchange and Communication increase interaction range.
-- Predatory Strike and Toxin Organelle now provide active interaction attacks.
-- Electroreception increases detection range.
-- Thermal Engine produces energy in extreme-temperature biomes.
-- Adaptive Radiation improves niche compatibility.
-- Water immersion visibly reports HYDRATING and restores water each physiology cycle.
-- Resource collection autosaves immediately.
-
-## Deployment
-
-Replace all repository files. The service-worker cache is `evolva-v7-1`.
+Existing v7, v7.1 and v7.2 saves migrate automatically.

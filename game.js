@@ -4,7 +4,7 @@ const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v7-1",LEGACY_SAVE_KEY="evolva-save-v7",WORLD=2200,XP_BASE=100;
+const SAVE_KEY="evolva-save-v7-3",LEGACY_SAVE_KEY="evolva-save-v7-2",OLDER_SAVE_KEYS=["evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -71,6 +71,162 @@ const ATLAS=[
 {id:"adaptive radiation",name:"Adaptive Radiation",axis:"adaptability",tier:5,icon:"✺",req:["developmental reserve","segmented body"],min:{adaptability:9,innovation:8},desc:"Each new biome can activate a specialised reversible form.",effect:"Biome morphs unlocked"}
 ];
 
+
+const AXIS_ANGLE={power:-2.65,mobility:-1.75,resilience:-.85,cognition:0,adaptability:.85,communication:1.75,innovation:2.65};
+const ATLAS_POS={};
+(function layoutAtlas(){
+ const groups={};Object.keys(AXES).forEach(a=>groups[a]=[]);
+ ATLAS.forEach(n=>groups[n.axis].push(n));
+ Object.entries(groups).forEach(([axis,nodes])=>{
+   nodes.sort((a,b)=>a.tier-b.tier||a.name.localeCompare(b.name));
+   const byTier={};nodes.forEach(n=>(byTier[n.tier]??=[]).push(n));
+   Object.entries(byTier).forEach(([tierStr,list])=>{
+     const tier=Number(tierStr),base=AXIS_ANGLE[axis],spread=Math.min(.56,.13*(list.length-1));
+     list.forEach((n,i)=>{
+       const off=list.length===1?0:-spread/2+spread*i/(list.length-1);
+       const radius=90+tier*82;
+       ATLAS_POS[n.id]={x:430+Math.cos(base+off)*radius,y:360+Math.sin(base+off)*radius};
+     });
+   });
+ });
+})();
+// Prevent label/node collisions in the compact mobile layout.
+if(ATLAS_POS["cilia"])ATLAS_POS["cilia"].x-=24;
+if(ATLAS_POS["pseudopods"])ATLAS_POS["pseudopods"].x+=24;
+if(ATLAS_POS["mineral scaffold"])ATLAS_POS["mineral scaffold"].y-=22;
+if(ATLAS_POS["predatory strike"])ATLAS_POS["predatory strike"].y+=22;
+if(ATLAS_POS["armoured cortex"])ATLAS_POS["armoured cortex"].y-=22;
+if(ATLAS_POS["detoxification"])ATLAS_POS["detoxification"].y+=22;
+
+let atlasCanvas,atlasCtx,atlasPointer=null,atlasDrag=null,atlasHover=null,atlasLastDraw=0,atlasDirty=true;
+const atlasPointers=new Map();
+function atlasStatus(node){
+ if(gene(node.id))return"owned";
+ if(nodeAvailable(node))return"available";
+ const prereqDistance=node.req.filter(r=>!gene(r)).length;
+ const pressure=(state.pressures[node.axis]||0)+(BIOMES[state.biome].pressure[node.axis]||0)*5;
+ if(prereqDistance<=1&&pressure>12)return"pressured";
+ return"locked";
+}
+function atlasVisible(node){
+ const status=atlasStatus(node);
+ if(status!=="locked")return true;
+ if(node.req.some(gene))return true;
+ return node.tier<=2;
+}
+function sanitizeAtlasView(){
+ if(!state.atlasView||![state.atlasView.x,state.atlasView.y,state.atlasView.zoom].every(Number.isFinite))state.atlasView={x:430,y:360,zoom:1};
+ state.atlasView.zoom=clamp(state.atlasView.zoom,.45,2.6);clampAtlasView()
+}
+function clampAtlasView(){
+ const margin=230/state.atlasView.zoom;
+ state.atlasView.x=clamp(state.atlasView.x,-margin,860+margin);
+ state.atlasView.y=clamp(state.atlasView.y,-margin,720+margin)
+}
+function atlasWorldFromClient(clientX,clientY){
+ const rect=atlasCanvas.getBoundingClientRect(),sx=(clientX-rect.left)*(atlasCanvas.width/rect.width),sy=(clientY-rect.top)*(atlasCanvas.height/rect.height);
+ return{x:(sx-atlasCanvas.width/2)/state.atlasView.zoom+state.atlasView.x,y:(sy-atlasCanvas.height/2)/state.atlasView.zoom+state.atlasView.y}
+}
+function atlasWorldFromEvent(e){return atlasWorldFromClient(e.clientX,e.clientY)}
+function atlasNodeAt(e){
+ const p=atlasWorldFromEvent(e);let best=null,d=1e9;
+ for(const n of ATLAS){if(!atlasVisible(n))continue;const q=ATLAS_POS[n.id],z=Math.hypot(q.x-p.x,q.y-p.y);if(z<d){d=z;best=n}}
+ return d<26/state.atlasView.zoom?best:null
+}
+function atlasFocusCurrent(){
+ const owned=ATLAS.filter(n=>gene(n.id));
+ if(!owned.length){state.atlasView={x:430,y:360,zoom:1};atlasDirty=true;return}
+ const pts=owned.map(n=>ATLAS_POS[n.id]);state.atlasView.x=pts.reduce((v,p)=>v+p.x,0)/pts.length;state.atlasView.y=pts.reduce((v,p)=>v+p.y,0)/pts.length;state.atlasView.zoom=1.18;clampAtlasView();atlasDirty=true
+}
+function atlasZoom(delta,clientX=null,clientY=null){
+ sanitizeAtlasView();const before=clientX===null?null:atlasWorldFromClient(clientX,clientY),old=state.atlasView.zoom;
+ state.atlasView.zoom=clamp(old*delta,.45,2.6);
+ if(before){
+   const after=atlasWorldFromClient(clientX,clientY);state.atlasView.x+=before.x-after.x;state.atlasView.y+=before.y-after.y
+ }
+ clampAtlasView();atlasDirty=true;save()
+}
+function atlasPointerDown(e){
+ e.preventDefault();atlasPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});atlasCanvas.setPointerCapture?.(e.pointerId);
+ if(atlasPointers.size===1){atlasPointer=e.pointerId;atlasDrag={x:e.clientX,y:e.clientY,vx:state.atlasView.x,vy:state.atlasView.y,moved:false}}
+ else if(atlasPointers.size===2){
+   const a=[...atlasPointers.values()],dx=a[0].x-a[1].x,dy=a[0].y-a[1].y;
+   atlasDrag={pinch:true,distance:Math.hypot(dx,dy),zoom:state.atlasView.zoom,midX:(a[0].x+a[1].x)/2,midY:(a[0].y+a[1].y)/2,world:atlasWorldFromClient((a[0].x+a[1].x)/2,(a[0].y+a[1].y)/2),moved:true}
+ }
+ $("livingAtlas").classList.add("is-dragging")
+}
+function atlasPointerMove(e){
+ if(!atlasPointers.has(e.pointerId))return;e.preventDefault();atlasPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(atlasPointers.size===2&&atlasDrag?.pinch){
+   const a=[...atlasPointers.values()],dx=a[0].x-a[1].x,dy=a[0].y-a[1].y,dist=Math.max(10,Math.hypot(dx,dy)),mx=(a[0].x+a[1].x)/2,my=(a[0].y+a[1].y)/2;
+   state.atlasView.zoom=clamp(atlasDrag.zoom*dist/atlasDrag.distance,.45,2.6);
+   const after=atlasWorldFromClient(mx,my);state.atlasView.x+=atlasDrag.world.x-after.x;state.atlasView.y+=atlasDrag.world.y-after.y;clampAtlasView();atlasDirty=true;return
+ }
+ if(e.pointerId!==atlasPointer||!atlasDrag||atlasDrag.pinch)return;
+ const rect=atlasCanvas.getBoundingClientRect(),dx=(e.clientX-atlasDrag.x)*(atlasCanvas.width/rect.width)/state.atlasView.zoom,dy=(e.clientY-atlasDrag.y)*(atlasCanvas.height/rect.height)/state.atlasView.zoom;
+ if(Math.hypot(dx,dy)>4)atlasDrag.moved=true;state.atlasView.x=atlasDrag.vx-dx;state.atlasView.y=atlasDrag.vy-dy;clampAtlasView();atlasDirty=true
+}
+function atlasPointerUp(e){
+ if(!atlasPointers.has(e.pointerId))return;e.preventDefault();
+ const wasPinch=atlasPointers.size>1||atlasDrag?.pinch,moved=atlasDrag?.moved,node=!wasPinch&&!moved?atlasNodeAt(e):null;
+ atlasPointers.delete(e.pointerId);atlasCanvas.releasePointerCapture?.(e.pointerId);
+ if(atlasPointers.size===0){atlasPointer=null;atlasDrag=null;$("livingAtlas").classList.remove("is-dragging");if(node)showAtlasTooltip(node,e);save()}
+ else if(atlasPointers.size===1){const [id,p]=[...atlasPointers.entries()][0];atlasPointer=id;atlasDrag={x:p.x,y:p.y,vx:state.atlasView.x,vy:state.atlasView.y,moved:true}}
+}
+function atlasWheel(e){e.preventDefault();atlasZoom(e.deltaY<0?1.12:.89,e.clientX,e.clientY)}
+function showAtlasTooltip(node,e){
+ const box=$("atlasTooltip"),status=atlasStatus(node),missing=node.req.filter(r=>!gene(r));
+ const thresholdMissing=Object.entries(node.min||{}).filter(([a,v])=>derivedAxis(a)<v).map(([a,v])=>`${AXES[a].name} ${derivedAxis(a)}/${v}`);
+ box.innerHTML=`<b>${node.icon} ${node.name}</b>${node.desc}<small>${node.effect}<br>${AXES[node.axis].name} · Tier ${node.tier}<br>${status==="owned"?"Fixed in lineage":status==="available"?"Accessible at next major evolution":[missing.length?"Requires: "+missing.join(", "):"",thresholdMissing.length?"Needs: "+thresholdMissing.join(", "):""].filter(Boolean).join("<br>")}</small>`;
+ const rect=atlasCanvas.getBoundingClientRect();box.style.left=Math.min(Math.max(6,rect.width-box.offsetWidth-6),Math.max(6,e.clientX-rect.left+8))+"px";box.style.top=Math.min(Math.max(6,rect.height-125),Math.max(6,e.clientY-rect.top-15))+"px";box.hidden=false;clearTimeout(showAtlasTooltip.t);showAtlasTooltip.t=setTimeout(()=>box.hidden=true,5000)
+}
+function atlasNodeColor(status,node){
+ if(status==="owned")return"#8cff9c";
+ if(status==="available")return"#ffd66a";
+ if(status==="pressured")return"#dba0ff";
+ return"#294036"
+}
+function drawAtlas(now=performance.now()){
+ if(!atlasCanvas||!$("lineageTab").classList.contains("active"))return;
+ if(!atlasDirty&&now-atlasLastDraw<50)return;atlasLastDraw=now;atlasDirty=false;
+ sanitizeAtlasView();
+ const c=atlasCtx,w=atlasCanvas.width,h=atlasCanvas.height;c.clearRect(0,0,w,h);
+ c.save();c.translate(w/2,h/2);c.scale(state.atlasView.zoom,state.atlasView.zoom);c.translate(-state.atlasView.x,-state.atlasView.y);
+ c.lineWidth=1.5/state.atlasView.zoom;
+ for(const n of ATLAS){
+   if(!atlasVisible(n))continue;
+   const to=ATLAS_POS[n.id];
+   for(const rid of n.req){
+     const from=ATLAS_POS[rid],req=ATLAS.find(x=>x.id===rid);if(!from||!req||!atlasVisible(req))continue;
+     const active=gene(rid)&&gene(n.id),open=gene(rid)&&nodeAvailable(n);
+     c.strokeStyle=active?"rgba(140,255,156,.8)":open?"rgba(255,214,106,.72)":"rgba(73,110,89,.38)";
+     c.beginPath();c.moveTo(from.x,from.y);c.lineTo(to.x,to.y);c.stroke()
+   }
+ }
+ // Root links connect the present organism to fixed basal innovations.
+ for(const n of ATLAS.filter(n=>gene(n.id)&&n.tier===1)){
+   const p=ATLAS_POS[n.id];c.strokeStyle="rgba(140,255,156,.72)";c.beginPath();c.moveTo(430,360);c.lineTo(p.x,p.y);c.stroke()
+ }
+ // central lineage core
+ c.fillStyle="#e8ffda";c.beginPath();c.arc(430,360,24,0,Math.PI*2);c.fill();
+ c.fillStyle="#06100c";c.font="bold 10px monospace";c.textAlign="center";c.fillText("YOU",430,364);
+ for(const n of ATLAS){
+   if(!atlasVisible(n))continue;
+   const p=ATLAS_POS[n.id],status=atlasStatus(n),pressure=(state.pressures[n.axis]||0)+(BIOMES[state.biome].pressure[n.axis]||0)*5;
+   if((status==="available"||status==="pressured")&&pressure>8){
+     c.strokeStyle=status==="available"?"rgba(255,214,106,.28)":"rgba(219,160,255,.25)";
+     c.lineWidth=(8+Math.sin(performance.now()/300)*2)/state.atlasView.zoom;c.beginPath();c.arc(p.x,p.y,18,0,Math.PI*2);c.stroke()
+   }
+   c.fillStyle=atlasNodeColor(status,n);c.strokeStyle=status==="owned"?"#dfffdc":status==="available"?"#fff2aa":"#45604f";c.lineWidth=2/state.atlasView.zoom;
+   const r=status==="owned"?13:11;c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);c.fill();c.stroke();
+   c.fillStyle=status==="locked"?"#7b9582":"#07120d";c.font=`${Math.max(7,10/state.atlasView.zoom)}px monospace`;c.textAlign="center";c.fillText(n.icon,p.x,p.y+3.5/state.atlasView.zoom);
+   if(state.atlasView.zoom>.72){
+     c.fillStyle=status==="locked"?"rgba(168,197,165,.48)":"#e8ffda";c.font=`${Math.max(6,7.5/state.atlasView.zoom)}px monospace`;
+     c.fillText(n.name.toUpperCase(),p.x,p.y+24/state.atlasView.zoom)
+   }
+ }
+ c.restore()
+}
 function baseAxes(){const a={};Object.keys(AXES).forEach(k=>a[k]=1);return a}
 function basePressures(){const a={};Object.keys(AXES).forEach(k=>a[k]=0);return a}
 function fresh(){
@@ -81,6 +237,7 @@ function fresh(){
  axes:baseAxes(),pressures:basePressures(),lifetimePressure:basePressures(),
  genes:[],pendingEpochs:0,completedEpochs:0,epochFeed:{},epochForecast:[],
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
+ atlasView:{x:430,y:360,zoom:1},
  resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
@@ -89,7 +246,7 @@ let state=fresh();
 function gene(n){return state.genes.includes(n)}
 function log(m){state.logs.unshift(`Cycle ${state.cycle}: ${m}`);state.logs=state.logs.slice(0,90);renderLog()}
 function toast(m){const e=$("toast");e.textContent=m;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2200)}
-function addPressure(axis,n=.1){state.pressures[axis]=clamp(state.pressures[axis]+n,0,100);state.lifetimePressure[axis]+=n}
+function addPressure(axis,n=.1){state.pressures[axis]=clamp(state.pressures[axis]+n,0,100);state.lifetimePressure[axis]+=n;if(n>=.5)atlasDirty=true}
 function addXP(n,reason){
  state.xp+=n;
  if(reason&&n>=2)log(`${reason} (+${Math.round(n)} evolutionary experience).`);
@@ -211,7 +368,7 @@ function consumeResource(type){
  state.inventory[type]--;state.energy=clamp(state.energy+FOOD[type].energy*phenotype().foodYield);addPressure(FOOD[type].axis,.8);log(`${FOOD[type].name} consumed from backpack.`);renderAll();save()
 }
 function spendAdapt(axis){
- if(state.adaptPoints<=0)return;state.adaptPoints--;state.axes[axis]++;log(`${AXES[axis].name} permanently increased.`);renderAll();save()
+ if(state.adaptPoints<=0)return;state.adaptPoints--;state.axes[axis]++;atlasDirty=true;log(`${AXES[axis].name} permanently increased.`);renderAll();save()
 }
 function movementTarget(x,y){state.target={x,y};state.mode="move";renderMode()}
 function forageToggle(){state.mode=state.mode==="forage"?"observe":"forage";state.target=null;renderAll()}
@@ -310,7 +467,9 @@ function renderForecast(){
  $("epochFeedStage").hidden=true;$("epochForecastStage").hidden=false;
  const combined={};Object.keys(AXES).forEach(a=>combined[a]=(state.pressures[a]||0)+(BIOMES[state.biome].pressure[a]||0)*5);
  Object.entries(state.epochFeed).forEach(([t,n])=>combined[FOOD[t].axis]+=n*12);
- $("pressureSummary").innerHTML=Object.entries(combined).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([a,v])=>`<div class="pressure-chip">${AXES[a].name}<b>${Math.round(v)}</b></div>`).join("");
+ const ranked=Object.entries(combined).sort((a,b)=>b[1]-a[1]);
+ $("pressureSummary").innerHTML=ranked.slice(0,4).map(([a,v])=>`<div class="pressure-chip">${AXES[a].name}<b>${Math.round(v)}</b></div>`).join("");
+ $("epochAtlasHint").innerHTML=`<b>Illuminated Atlas regions:</b> ${ranked.slice(0,3).map(([a])=>AXES[a].name).join(" · ")}. These pressures bias the accessible nodes shown below; locked prerequisites are never bypassed.`;
  $("forecastChoices").innerHTML=state.epochForecast.map(n=>`<button class="forecast-choice" data-choose="${n.id}"><b>${n.icon} ${n.name}</b><span>${n.desc}</span><small>${n.effect} · ${AXES[n.axis].name} · tier ${n.tier}</small></button>`).join("");
  document.querySelectorAll("[data-choose]").forEach(b=>b.onclick=()=>completeEpoch(b.dataset.choose))
 }
@@ -320,9 +479,9 @@ function completeEpoch(id){
  if(!id.startsWith("fallback:")&&!nodeAvailable(node)){toast("EVOLUTION NO LONGER ACCESSIBLE");buildForecast();return}
  Object.entries(state.epochFeed).forEach(([t,n])=>state.inventory[t]=Math.max(0,state.inventory[t]-n));
  if(id.startsWith("fallback:")){
-   state.axes[node.axis]++;state.bodyPlan=node.name;
+   state.axes[node.axis]++;state.bodyPlan=node.name;atlasDirty=true;
  }else{
-   state.genes.push(node.id);state.axes[node.axis]+=.5;state.bodyPlan=node.name;
+   state.genes.push(node.id);state.axes[node.axis]+=.5;state.bodyPlan=node.name;atlasDirty=true;
  }
  state.generation++;state.mass*=1.08+node.tier*.025;state.completedEpochs++;state.pendingEpochs=Math.max(0,state.pendingEpochs-1);
  state.epochFeed={};state.epochForecast=[];
@@ -338,7 +497,7 @@ function migrate(){
  addXP(15,`Migration into ${BIOMES[state.biome].name}`);renderAll();save()
 }
 function chooseOrigin(id){
- const o=ORIGINS.find(x=>x.id===id);state.origin=id;state.bodyPlan=o.name;Object.entries(o.axes).forEach(([a,v])=>state.axes[a]+=v);state.genes=[o.gene];
+ const o=ORIGINS.find(x=>x.id===id);state.origin=id;state.bodyPlan=o.name;Object.entries(o.axes).forEach(([a,v])=>state.axes[a]+=v);state.genes=[o.gene];atlasFocusCurrent();atlasDirty=true;
  $("originModal").classList.remove("visible");log(`Lineage founded as ${o.name}.`);renderAll();save()
 }
 
@@ -391,28 +550,27 @@ function renderMeters(){
  bar("energyBar",state.energy,"var(--green)");bar("waterBar",state.water,"var(--blue)");bar("healthBar",state.health,"var(--green)");bar("xpBar",state.xp/xpNeeded()*100,"var(--purple)")
 }
 function renderLineage(){
- const o=ORIGINS.find(x=>x.id===state.origin);$("originLabel").textContent=o?.name||"UNFORMED ANCESTOR";$("bodyPlanLabel").textContent=state.bodyPlan.toUpperCase();$("lineageLevel").textContent=state.level;
- $("xpText").textContent=`${Math.floor(state.xp)} / ${xpNeeded()}`;bar("lineageXpBar",state.xp/xpNeeded()*100,"var(--purple)");$("epochHint").textContent=state.pendingEpochs>0?`${state.pendingEpochs} major evolution${state.pendingEpochs>1?"s":""} ready`:`Next major evolution at level ${Math.ceil((state.level+1)/5)*5}`;$("adaptPointLabel").textContent=`${state.adaptPoints} AP`;
- $("attributeGrid").innerHTML=Object.entries(AXES).map(([k,a])=>`<div class="attribute"><div class="top"><span class="icon">${a.icon}</span><strong>${derivedAxis(k)}</strong></div><b>${a.name}</b><p>${a.desc}</p><button data-axis="${k}" ${state.adaptPoints?"":"disabled"}>+</button></div>`).join("");
+ atlasDirty=true;const o=ORIGINS.find(x=>x.id===state.origin);
+ $("originLabel").textContent=o?.name||"UNFORMED ANCESTOR";$("bodyPlanLabel").textContent=state.bodyPlan.toUpperCase();
+ $("lineageMeta").textContent=`Generation ${state.generation} · Epoch ${state.completedEpochs}`;
+ $("lineageLevel").textContent=state.level;$("xpText").textContent=`${Math.floor(state.xp)} / ${xpNeeded()}`;
+ bar("lineageXpBar",state.xp/xpNeeded()*100,"var(--purple)");
+ $("epochHint").textContent=state.pendingEpochs>0?`${state.pendingEpochs} major evolution${state.pendingEpochs>1?"s":""} ready`:`Next major evolution at level ${Math.ceil((state.level+1)/5)*5}`;
+ $("adaptPointLabel").textContent=`${state.adaptPoints} AP`;
+ $("attributeStrip").innerHTML=Object.entries(AXES).map(([k,a])=>`<div class="attribute-mini" title="${a.desc}"><button data-axis="${k}" ${state.adaptPoints?"":"disabled"}>+</button><span>${a.icon}</span><b>${a.name}</b><strong>${derivedAxis(k)}</strong></div>`).join("");
  document.querySelectorAll("[data-axis]").forEach(b=>b.onclick=()=>spendAdapt(b.dataset.axis));
  const p=phenotype();$("phenotypeCards").innerHTML=[["Locomotion",`${p.speed.toFixed(2)}× movement performance`],["Mechanical force",`${p.force.toFixed(2)}× feeding and attack force`],["Stress defence",`${p.defense.toFixed(2)}× injury buffering`],["Ecological fit",`${Math.round(fit())}% in ${BIOMES[state.biome].name}`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
- $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("")
-}
-function renderInventory(){
+ $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("");
+ $("atlasSummary").textContent=`${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · biome pressure is illuminating nearby branches`;
+}function renderInventory(){
  $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>`<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]}</em><b style="color:${f.color}">◆</b><span>${f.name.toUpperCase()}</span><small>tap to metabolise</small></button>`).join("");
  document.querySelectorAll("[data-resource]").forEach(b=>b.onclick=()=>consumeResource(b.dataset.resource))
-}
-function renderAtlas(){
- const filter=$("atlasFilter").value;
- const nodes=ATLAS.filter(n=>filter==="all"||n.axis===filter).sort((a,b)=>a.tier-b.tier);
- $("atlasSummary").textContent=`${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} currently accessible`;
- $("atlasGrid").innerHTML=nodes.map(n=>{const status=gene(n.id)?"owned":nodeAvailable(n)?"available":"locked";const req=n.req.length?`Requires: ${n.req.join(", ")}`:"Basal innovation";return`<div class="atlas-node ${status}" style="color:${status==="available"?"var(--gold)":status==="owned"?"var(--green)":"var(--muted)"}"><div class="node-icon">${n.icon}</div><div><b>${n.name}</b><p>${n.desc}</p><small>${n.effect}<br>${req}</small></div><span class="tier">T${n.tier}<br>${status.toUpperCase()}</span></div>`}).join("")
 }
 function renderEcology(){
  $("ecologyCards").innerHTML=[["Biome",BIOMES[state.biome].name],["Surface state",isWaterAt(state.x,state.y)?"Immersed: passive hydration active":"Terrestrial surface"],["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<300).length} detected locally`],["Niche fit",`${Math.round(fit())}% compatibility`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("")
 }
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
-function renderAll(){$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderAtlas();renderEcology();renderLog()}
+function renderAll(){$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
 function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;box.innerHTML=`<b style="color:${best.color}">ORGANISM</b><br>mass ${best.mass.toFixed(1)}<br>health ${Math.round(best.health)}<br>state ${best.state}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(state.x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(state.y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
@@ -421,33 +579,44 @@ function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.set
 function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;const p=worldPoint(e);movementTarget(p.x,p.y)}
 function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);canvas.releasePointerCapture?.(e.pointerId);activePointer=null}
 function bind(){
+ atlasCanvas=$("atlasCanvas");atlasCtx=atlasCanvas.getContext("2d");
+ atlasCanvas.addEventListener("pointerdown",atlasPointerDown,{passive:false});
+ atlasCanvas.addEventListener("pointermove",atlasPointerMove,{passive:false});
+ atlasCanvas.addEventListener("pointerup",atlasPointerUp,{passive:false});
+ atlasCanvas.addEventListener("pointercancel",atlasPointerUp,{passive:false});
+ atlasCanvas.addEventListener("wheel",atlasWheel,{passive:false});
+ $("atlasHomeBtn").onclick=()=>{atlasFocusCurrent();save();drawAtlas()};
+ $("atlasMinusBtn").onclick=()=>{atlasZoom(.82);drawAtlas()};
+ $("atlasPlusBtn").onclick=()=>{atlasZoom(1.22);drawAtlas()};
  canvas.addEventListener("pointerdown",pointerStart,{passive:false});canvas.addEventListener("pointermove",pointerMove,{passive:false});canvas.addEventListener("pointerup",pointerEnd,{passive:false});canvas.addEventListener("pointercancel",pointerEnd,{passive:false});
  $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;
- $("atlasFilter").onchange=renderAtlas;$("forecastBtn").onclick=buildForecast;$("backToFeedBtn").onclick=()=>{$("epochFeedStage").hidden=false;$("epochForecastStage").hidden=true};
- $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){localStorage.removeItem(SAVE_KEY);localStorage.removeItem(LEGACY_SAVE_KEY);location.reload()}};
- document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active")})
+ $("forecastBtn").onclick=buildForecast;$("backToFeedBtn").onclick=()=>{$("epochFeedStage").hidden=false;$("epochForecastStage").hidden=true};
+ $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
+ document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active");$("atlasTooltip").hidden=true;atlasDirty=true;if(t.dataset.tab==="lineage")requestAnimationFrame(drawAtlas)})
 }
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));$("saveStatus").textContent="saved";setTimeout(()=>$("saveStatus").textContent="autosaving",700)}catch(e){}}
 function load(){
- const raw=localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY);
+ const raw=localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY)||OLDER_SAVE_KEYS.map(k=>localStorage.getItem(k)).find(Boolean);
  if(!raw)return false;
  try{
   const b=fresh(),x=JSON.parse(raw);state=Object.assign(b,x);
   state.axes=Object.assign(b.axes,x.axes||{});state.pressures=Object.assign(b.pressures,x.pressures||{});
-  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});
+  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
+  state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
+  state.resources=Array.isArray(x.resources)?x.resources:[];state.organisms=Array.isArray(x.organisms)?x.organisms:[];state.logs=Array.isArray(x.logs)?x.logs:[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
-  state.pendingEpochs=Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0);
+  state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
   state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};
   return true;
  }catch(e){return false}
 }
 function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small>Begins with ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
 function start(newLineage=false){
- if(newLineage){localStorage.removeItem(SAVE_KEY);state=fresh()}else load();
+ if(newLineage){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
  if(!state.resources.length)spawnFood(58);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();running=true;requestAnimationFrame(loop);
  if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500)
 }
-let running=false;function loop(){if(!running)return;update();draw();requestAnimationFrame(loop)}
+let running=false;function loop(now){if(!running)return;update();draw();drawAtlas(now);requestAnimationFrame(loop)}
 window.addEventListener("error",e=>{const x=$("error");x.hidden=false;x.textContent=e.message});
 $("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.1").catch(()=>{});
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.3").catch(()=>{});
