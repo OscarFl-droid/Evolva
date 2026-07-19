@@ -6,28 +6,64 @@
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v6.1</title>
-<link rel="manifest" href="manifest.webmanifest?v=6.1">
+<title>EVOLVA v7.1</title>
+<link rel="manifest" href="manifest.webmanifest?v=7.1">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=6.1">
+<link rel="stylesheet" href="styles.css?v=7.1">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small>v6.1</small></h1>
-    <p class="tag">OPEN-ENDED NICHE GENETICS SURVIVAL</p>
-    <p>You are one lineage inside a living ecosystem. Tap the world to move. Hold to continue. Survive, adapt and persist.</p>
-    <button id="continue" class="primary">START / CONTINUE</button>
-    <button id="newGame">NEW LINEAGE</button>
+    <h1>EVOLVA <small>v7.1</small></h1>
+    <p class="tag">LINEAGE ENGINE</p>
+    <p>Guide one lineage through ecology, nutrition, behaviour and major evolutionary epochs.</p>
+    <button id="continue" class="primary">CONTINUE LINEAGE</button>
+    <button id="newGame">CREATE NEW LINEAGE</button>
     <p class="fine">Autosave · offline · mobile-first</p>
     <div id="error" class="error" hidden></div>
+  </div>
+</div>
+
+<div id="originModal" class="modal">
+  <div class="modal-card wide">
+    <h1>CHOOSE ANCESTRAL ORIGIN</h1>
+    <p class="note">This is not a class lock. It determines the first pressures, starting anatomy and early Genome Atlas access.</p>
+    <div id="originChoices" class="origin-choices"></div>
+  </div>
+</div>
+
+<div id="epochModal" class="modal">
+  <div class="modal-card wide epoch-card">
+    <div class="epoch-heading">
+      <div>
+        <p class="tag">MAJOR EVOLUTION</p>
+        <h1 id="epochTitle">EPOCH I</h1>
+      </div>
+      <b id="epochLevelLabel">LEVEL 5</b>
+    </div>
+
+    <section id="epochFeedStage">
+      <p class="note">Commit up to six stored resources. Nutrition alters which innovations are developmentally accessible.</p>
+      <div id="epochInventory" class="inventory-grid"></div>
+      <div class="epoch-summary">
+        <span>Committed <b id="feedCount">0 / 6</b></span>
+        <button id="forecastBtn" class="primary">READ SELECTION PRESSURES</button>
+      </div>
+    </section>
+
+    <section id="epochForecastStage" hidden>
+      <div id="pressureSummary" class="pressure-summary"></div>
+      <h2>LIKELY EVOLUTIONARY OUTCOMES</h2>
+      <div id="forecastChoices" class="forecast-choices"></div>
+      <button id="backToFeedBtn">CHANGE NUTRITION</button>
+    </section>
   </div>
 </div>
 
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small>v6.1</small></h1>
+      <h1>EVOLVA <small>v7.1</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -38,14 +74,13 @@
 
   <section class="world panel">
     <canvas id="world" width="430" height="650"></canvas>
-    <div id="hint" class="hint">Tap to move · hold to continue</div>
+    <div id="hint" class="hint">Tap to move · hold and drag to guide</div>
     <div id="toast" class="toast" hidden></div>
     <div id="inspect" class="inspect" hidden></div>
-
     <div class="quick-actions">
       <button id="forageBtn">FORAGE</button>
       <button id="restBtn">REST</button>
-      <button id="evolveBtn" class="primary">EVOLVE</button>
+      <button id="interactBtn">INTERACT</button>
     </div>
   </section>
 
@@ -53,39 +88,72 @@
     <div><span>ENERGY <b id="energyText">72</b></span><i><em id="energyBar"></em></i></div>
     <div><span>WATER <b id="waterText">68</b></span><i><em id="waterBar"></em></i></div>
     <div><span>HEALTH <b id="healthText">92</b></span><i><em id="healthBar"></em></i></div>
-    <div><span>EVOLUTION <b id="evoText">0</b></span><i><em id="evoBar"></em></i></div>
+    <div><span>LEVEL <b id="levelText">1</b></span><i><em id="xpBar"></em></i></div>
   </section>
 
   <section class="panel drawer">
     <nav>
       <button class="tab active" data-tab="lineage">LINEAGE</button>
       <button class="tab" data-tab="pack">PACK</button>
-      <button class="tab" data-tab="genome">GENOME</button>
+      <button class="tab" data-tab="atlas">ATLAS</button>
       <button class="tab" data-tab="ecology">ECOLOGY</button>
       <button class="tab" data-tab="history">HISTORY</button>
     </nav>
 
     <div id="lineageTab" class="tab-content active">
-      <div class="data-grid">
-        <div><span>Biomass</span><b id="massText">1.0</b></div>
-        <div><span>Generation</span><b id="generationText">1</b></div>
-        <div><span>Trophic mode</span><b id="trophicText">scavenger</b></div>
-        <div><span>Niche fit</span><b id="fitText">50%</b></div>
+      <div class="lineage-banner">
+        <div>
+          <span id="originLabel">UNFORMED ANCESTOR</span>
+          <b id="bodyPlanLabel">SIMPLE VESICLE</b>
+        </div>
+        <div class="level-badge"><small>LEVEL</small><strong id="lineageLevel">1</strong></div>
       </div>
-      <div id="phenotypeCards" class="cards"></div>
+
+      <div class="progress-block">
+        <span>Evolutionary experience <b id="xpText">0 / 100</b></span>
+        <i><em id="lineageXpBar"></em></i>
+        <small id="epochHint">Next major evolution at level 5</small>
+      </div>
+
+      <div class="attribute-header">
+        <div>
+          <h2>CORE BIOLOGICAL AXES</h2>
+          <p>Emergent capacity shaped by genes, anatomy and adaptation.</p>
+        </div>
+        <b id="adaptPointLabel">0 AP</b>
+      </div>
+      <div id="attributeGrid" class="attribute-grid"></div>
+
+      <h2>ACTIVE PHENOTYPE</h2>
+      <div id="phenotypeCards" class="cards compact"></div>
+
+      <h2>RECENT SELECTION PRESSURES</h2>
+      <div id="pressureBars" class="pressure-bars"></div>
     </div>
 
-
     <div id="packTab" class="tab-content">
-      <p class="note">Resources replenish energy automatically when needed. Surplus is stored. Tap a stored resource to invest it into the corresponding developmental pathway.</p>
+      <p class="note">Surplus resources enter the backpack. Tap to metabolise immediately; hold resources for the next five-level evolution to bias its outcome.</p>
       <div id="inventoryGrid" class="inventory-grid"></div>
     </div>
 
-    <div id="genomeTab" class="tab-content">
-      <p class="note">Collected materials are assimilated automatically. Repeated ecological success biases which functions become heritable.</p>
-      <div id="pathGrid" class="path-grid"></div>
-      <h2>Fixed genes</h2>
-      <div id="geneList" class="chips"></div>
+    <div id="atlasTab" class="tab-content">
+      <div class="atlas-header">
+        <div>
+          <h2>GENOME ATLAS</h2>
+          <p id="atlasSummary">Biological innovations emerge from prerequisites and selection.</p>
+        </div>
+        <select id="atlasFilter">
+          <option value="all">ALL PATHS</option>
+          <option value="power">POWER</option>
+          <option value="mobility">MOBILITY</option>
+          <option value="resilience">RESILIENCE</option>
+          <option value="cognition">COGNITION</option>
+          <option value="adaptability">ADAPTABILITY</option>
+          <option value="communication">COMMUNICATION</option>
+          <option value="innovation">INNOVATION</option>
+        </select>
+      </div>
+      <div id="atlasGrid" class="atlas-grid"></div>
     </div>
 
     <div id="ecologyTab" class="tab-content">
@@ -95,16 +163,13 @@
 
     <div id="historyTab" class="tab-content">
       <div id="logList" class="log"></div>
+      <button id="restartBtn" class="danger-action">END LINEAGE AND RESTART</button>
     </div>
   </section>
 
-  <footer>
-    <button id="saveBtn">SAVE</button>
-    <button id="resetBtn">RESET</button>
-    <span id="saveStatus">autosave on</span>
-  </footer>
+  <footer><span id="saveStatus">autosaving</span></footer>
 </main>
 
-<script src="game.js?v=6.1" defer></script>
+<script src="game.js?v=7.1" defer></script>
 </body>
 </html>
