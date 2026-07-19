@@ -6,15 +6,15 @@
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v6</title>
-<link rel="manifest" href="manifest.webmanifest?v=6">
+<title>EVOLVA v6.1</title>
+<link rel="manifest" href="manifest.webmanifest?v=6.1">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=6.1">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small>v6</small></h1>
+    <h1>EVOLVA <small>v6.1</small></h1>
     <p class="tag">OPEN-ENDED NICHE GENETICS SURVIVAL</p>
     <p>You are one lineage inside a living ecosystem. Tap the world to move. Hold to continue. Survive, adapt and persist.</p>
     <button id="continue" class="primary">START / CONTINUE</button>
@@ -27,7 +27,7 @@
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small>v6</small></h1>
+      <h1>EVOLVA <small>v6.1</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -59,6 +59,7 @@
   <section class="panel drawer">
     <nav>
       <button class="tab active" data-tab="lineage">LINEAGE</button>
+      <button class="tab" data-tab="pack">PACK</button>
       <button class="tab" data-tab="genome">GENOME</button>
       <button class="tab" data-tab="ecology">ECOLOGY</button>
       <button class="tab" data-tab="history">HISTORY</button>
@@ -74,6 +75,12 @@
       <div id="phenotypeCards" class="cards"></div>
     </div>
 
+
+    <div id="packTab" class="tab-content">
+      <p class="note">Resources replenish energy automatically when needed. Surplus is stored. Tap a stored resource to invest it into the corresponding developmental pathway.</p>
+      <div id="inventoryGrid" class="inventory-grid"></div>
+    </div>
+
     <div id="genomeTab" class="tab-content">
       <p class="note">Collected materials are assimilated automatically. Repeated ecological success biases which functions become heritable.</p>
       <div id="pathGrid" class="path-grid"></div>
@@ -83,6 +90,7 @@
 
     <div id="ecologyTab" class="tab-content">
       <div id="ecologyCards" class="cards"></div>
+      <button id="migrateBtn" class="secondary-action">MIGRATE TO NEXT NICHE</button>
     </div>
 
     <div id="historyTab" class="tab-content">
@@ -97,6 +105,6 @@
   </footer>
 </main>
 
-<script src="game.js?v=6" defer></script>
+<script src="game.js?v=6.1" defer></script>
 </body>
 </html>

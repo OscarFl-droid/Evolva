@@ -4,7 +4,7 @@ const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v6",WORLD=2200;
+const SAVE_KEY="evolva-save-v6-1",WORLD=2200;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,food:{sugar:3,lipid:3,amino:4,mineral:9,pigment:6,spore:1}},
@@ -62,7 +62,8 @@ function fresh(){
  const paths={};Object.keys(PATHS).forEach(k=>paths[k]=0);
  return {cycle:1,tick:0,biome:0,generation:1,x:WORLD/2,y:WORLD/2,vx:0,vy:0,target:null,
  energy:72,water:68,health:92,mass:1,evolution:0,mode:"observe",paths,genes:["basal chemistry"],
- resources:[],organisms:[],logs:[],cameraZoom:1,inspectId:null,lastInteraction:0};
+ inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
+ resources:[],organisms:[],logs:[],inspectId:null,lastInteraction:0};
 }
 let state=fresh();
 
@@ -86,7 +87,7 @@ function fit(){
  if(b.light>70&&gene("photosymbiont"))f+=15;
  return clamp(f);
 }
-function cameraScale(){return clamp((1/Math.pow(state.mass,.2))*state.cameraZoom,.32,1.35)}
+function cameraScale(){return clamp(1/Math.pow(state.mass,.2),.32,1.15)}
 function radius(m=state.mass){return 10+Math.log2(m+1)*5}
 
 function weightedFood(){
@@ -177,14 +178,39 @@ function damage(n){
  toast("ATTACK — ESCAPE");
  if(state.health<=0){state.health=35;state.energy=25;state.water=30;state.mass=Math.max(.7,state.mass*.55);state.x=WORLD/2;state.y=WORLD/2;log("The lineage survived as a smaller propagule.")}
 }
+function resourceYield(type){
+ let e=FOOD[type].energy;
+ if(type==="sugar"&&gene("efficient glycolysis"))e*=1.35;
+ if((type==="lipid"||type==="mineral")&&gene("redox chain"))e*=1.35;
+ return e;
+}
 function collect(){
  for(let i=state.resources.length-1;i>=0;i--){
-   const r=state.resources[i];if(Math.hypot(r.x-state.x,r.y-state.y)<radius()+10){
-     let e=FOOD[r.type].energy;if(r.type==="sugar"&&gene("efficient glycolysis"))e*=1.35;if((r.type==="lipid"||r.type==="mineral")&&gene("redox chain"))e*=1.35;
-     state.energy=clamp(state.energy+e);state.paths[FOOD[r.type].path]+=.35;state.evolution=clamp(state.evolution+2.2);state.resources.splice(i,1);
-     log(`${r.type} assimilated; ${PATHS[FOOD[r.type].path].name.toLowerCase()} development increased.`);
+   const r=state.resources[i];
+   if(Math.hypot(r.x-state.x,r.y-state.y)<radius()+10){
+     const e=resourceYield(r.type);
+     if(state.energy<=100-e*.45){
+       state.energy=clamp(state.energy+e);
+       state.paths[FOOD[r.type].path]+=.18;
+       state.evolution=clamp(state.evolution+1.4);
+       log(`${r.type} metabolised automatically (+${Math.round(e)} energy).`);
+     }else{
+       state.inventory[r.type]=(state.inventory[r.type]||0)+1;
+       state.evolution=clamp(state.evolution+.7);
+       log(`${r.type} stored in the backpack.`);
+     }
+     state.resources.splice(i,1);
    }
  }
+}
+function investResource(type){
+ if(!state.inventory[type]){toast("NONE STORED");return}
+ state.inventory[type]--;
+ const path=FOOD[type].path;
+ state.paths[path]+=.8;
+ state.evolution=clamp(state.evolution+4);
+ log(`${type} invested into ${PATHS[path].name.toLowerCase()} development.`);
+ renderAll();save();
 }
 function movementTarget(x,y){state.target={x,y};state.mode="move";state.lastInteraction=state.tick;renderMode()}
 function forageToggle(){state.mode=state.mode==="forage"?"observe":"forage";state.target=null;renderAll();log(state.mode==="forage"?"Autonomous survival behaviour activated.":"Autonomous survival behaviour stopped.")}
@@ -207,6 +233,14 @@ function forageAI(){
    const dx=state.x-o.x,dy=state.y-o.y,d=Math.hypot(dx,dy)||1;movementTarget(state.x+dx/d*180,state.y+dy/d*180);state.mode="forage";return;
  }
  const r=nearestResource(state.x,state.y);if(r)movementTarget(r.o.x,r.o.y),state.mode="forage";
+}
+function migrate(){
+ if(state.energy<10){toast("NOT ENOUGH ENERGY");return}
+ state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;
+ state.x=WORLD/2;state.y=WORLD/2;state.target=null;state.mode="observe";
+ state.resources=[];spawnFood(58);populate();
+ log(`The lineage migrated to ${BIOMES[state.biome].name}.`);
+ toast(BIOMES[state.biome].name);renderAll();save();
 }
 function ecologyTick(){
  const b=BIOMES[state.biome],p=phenotype();
@@ -237,15 +271,24 @@ function update(){
 function sx(x){return canvas.width/2+(x-state.x)*cameraScale()}
 function sy(y){return canvas.height/2+(y-state.y)*cameraScale()}
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))}
+function terrainType(gx,gy){
+ // Integer world-cell hash: terrain never changes unless the biome changes.
+ let n=(Math.imul(gx,73856093)^Math.imul(gy,19349663)^Math.imul(state.biome+1,83492791))>>>0;
+ n=(n^(n>>>13))*1274126177>>>0;
+ return n%10;
+}
 function drawWorld(){
- const b=BIOMES[state.biome],z=cameraScale(),tile=95*z;
+ const b=BIOMES[state.biome],z=cameraScale(),worldTile=95;
+ const halfW=canvas.width/(2*z),halfH=canvas.height/(2*z);
+ const minGX=Math.floor((state.x-halfW)/worldTile)-1,maxGX=Math.ceil((state.x+halfW)/worldTile)+1;
+ const minGY=Math.floor((state.y-halfH)/worldTile)-1,maxGY=Math.ceil((state.y+halfH)/worldTile)+1;
  px(0,0,canvas.width,canvas.height,b.sky);
- const ox=-((state.x*z)%tile),oy=-((state.y*z)%tile);
- for(let y=oy;y<canvas.height;y+=tile)for(let x=ox;x<canvas.width;x+=tile){
-   const n=Math.abs((Math.floor((x+state.x*z)/tile)*19+Math.floor((y+state.y*z)/tile)*31+state.biome*7)%10);
-   px(x,y,tile+1,tile+1,n<2?b.water:b.ground);
-   if(n===4)px(x+tile*.2,y+tile*.6,Math.max(2,tile*.12),Math.max(2,tile*.08),"rgba(255,255,255,.16)");
-   if(n===7)px(x+tile*.7,y+tile*.25,Math.max(2,tile*.08),Math.max(2,tile*.18),"rgba(0,0,0,.18)");
+ for(let gy=minGY;gy<=maxGY;gy++)for(let gx=minGX;gx<=maxGX;gx++){
+   const wx=gx*worldTile,wy=gy*worldTile,n=terrainType(gx,gy);
+   const x=sx(wx),y=sy(wy),size=worldTile*z+1;
+   px(x,y,size,size,n<2?b.water:b.ground);
+   if(n===4)px(x+size*.2,y+size*.6,Math.max(2,size*.12),Math.max(2,size*.08),"rgba(255,255,255,.16)");
+   if(n===7)px(x+size*.7,y+size*.25,Math.max(2,size*.08),Math.max(2,size*.18),"rgba(0,0,0,.18)");
  }
 }
 function visible(x,y,p=40){const a=sx(x),b=sy(y);return a>-p&&a<canvas.width+p&&b>-p&&b<canvas.height+p}
@@ -267,7 +310,12 @@ function drawPlayer(){
  if(gene("photoreception")||gene("photosymbiont")){px(x-r*.45,y-r*1.45,r*.25,r*.7,gold);px(x+r*.08,y-r*1.55,r*.25,r*.8,gold)}
  if(gene("developmental zones"))for(let i=-2;i<=2;i++)px(x+i*r*.42-r*.1,y+r*.67,r*.2,r*.3,main);
  if(gene("chemical weapon"))px(x+r*.72,y+r*.18,r*.4,r*.28,"#dba0ff");
- if(state.target){const tx=sx(state.target.x),ty=sy(state.target.y);ctx.strokeStyle="rgba(255,255,255,.35)";ctx.beginPath();ctx.arc(tx,ty,8,0,Math.PI*2);ctx.stroke()}
+ if(state.target){
+  const tx=sx(state.target.x),ty=sy(state.target.y);
+  ctx.strokeStyle="rgba(255,255,255,.75)";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(tx,ty,9,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tx-13,ty);ctx.lineTo(tx+13,ty);ctx.moveTo(tx,ty-13);ctx.lineTo(tx,ty+13);ctx.stroke();
+ }
 }
 function draw(){drawWorld();drawFood();state.organisms.forEach(drawOrganism);drawPlayer()}
 
@@ -288,6 +336,10 @@ function renderLineage(){
  ["Body scale",`Camera scale ${cameraScale().toFixed(2)}×; growth expands the visible ecological field.`]
  ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
 }
+function renderInventory(){
+ $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>`<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]||0}</em><b style="color:${f.color}">◆</b><span>${k.toUpperCase()}</span><small>invest → ${PATHS[f.path].name}</small></button>`).join("");
+ document.querySelectorAll("[data-resource]").forEach(b=>b.onclick=()=>investResource(b.dataset.resource));
+}
 function renderGenome(){
  $("pathGrid").innerHTML=Object.entries(PATHS).map(([k,p])=>`<div class="path-node"><b style="color:${p.color}">${p.name}</b><strong>${state.paths[k].toFixed(1)}</strong><i><em style="width:${Math.min(100,state.paths[k]/8*100)}%;background:${p.color}"></em></i></div>`).join("");
  $("geneList").innerHTML=state.genes.map(g=>`<span class="chip">${g}</span>`).join("");
@@ -303,7 +355,7 @@ function renderEcology(){
  ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
 }
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
-function renderAll(){$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderGenome();renderEcology();renderLog()}
+function renderAll(){renderInventory();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderGenome();renderEcology();renderLog()}
 
 function inspectAt(wx,wy){
  let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}
@@ -314,28 +366,67 @@ function inspectAt(wx,wy){
  }
 }
 function worldPoint(ev){
- const r=canvas.getBoundingClientRect(),t=ev.touches?ev.touches[0]:ev;
- return{x:state.x+(t.clientX-r.left-r.width/2)/cameraScale()*(canvas.width/r.width),y:state.y+(t.clientY-r.top-r.height/2)/cameraScale()*(canvas.height/r.height)};
+ const rect=canvas.getBoundingClientRect();
+ const canvasX=(ev.clientX-rect.left)*(canvas.width/rect.width);
+ const canvasY=(ev.clientY-rect.top)*(canvas.height/rect.height);
+ return{
+  x:clamp(state.x+(canvasX-canvas.width/2)/cameraScale(),0,WORLD),
+  y:clamp(state.y+(canvasY-canvas.height/2)/cameraScale(),0,WORLD)
+ };
 }
-let holdTimer=null,longTimer=null,lastTap=0,pointerDown=false;
+let activePointer=null,longTimer=null,startPoint=null,moved=false;
 function pointerStart(e){
- e.preventDefault();pointerDown=true;const p=worldPoint(e),now=Date.now();
- if(now-lastTap<300){state.cameraZoom=clamp(state.cameraZoom*.82,.6,1.3);toast("VIEW EXPANDED")}lastTap=now;
- longTimer=setTimeout(()=>inspectAt(p.x,p.y),520);
+ e.preventDefault();
+ activePointer=e.pointerId;
+ canvas.setPointerCapture?.(e.pointerId);
+ startPoint={x:e.clientX,y:e.clientY};
+ moved=false;
+ const p=worldPoint(e);
  movementTarget(p.x,p.y);
- holdTimer=setInterval(()=>{if(pointerDown){const q=worldPoint(e);movementTarget(q.x,q.y)}},140);
+ clearTimeout(longTimer);
+ longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y)},560);
 }
-function pointerMove(e){if(!pointerDown)return;e.preventDefault();const p=worldPoint(e);movementTarget(p.x,p.y)}
-function pointerEnd(e){pointerDown=false;clearInterval(holdTimer);clearTimeout(longTimer)}
+function pointerMove(e){
+ if(activePointer!==e.pointerId)return;
+ e.preventDefault();
+ if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;
+ const p=worldPoint(e);
+ movementTarget(p.x,p.y);
+}
+function pointerEnd(e){
+ if(activePointer!==e.pointerId)return;
+ e.preventDefault();
+ clearTimeout(longTimer);
+ canvas.releasePointerCapture?.(e.pointerId);
+ activePointer=null;startPoint=null;
+}
 function bind(){
- ["pointerdown","touchstart"].forEach(ev=>canvas.addEventListener(ev,pointerStart,{passive:false}));
- ["pointermove","touchmove"].forEach(ev=>canvas.addEventListener(ev,pointerMove,{passive:false}));
- ["pointerup","pointercancel","touchend","touchcancel"].forEach(ev=>canvas.addEventListener(ev,pointerEnd,{passive:false}));
- $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("evolveBtn").onclick=evolve;$("saveBtn").onclick=save;$("resetBtn").onclick=()=>{if(confirm("Reset the lineage?")){localStorage.removeItem(SAVE_KEY);location.reload()}};
+ canvas.addEventListener("pointerdown",pointerStart,{passive:false});
+ canvas.addEventListener("pointermove",pointerMove,{passive:false});
+ canvas.addEventListener("pointerup",pointerEnd,{passive:false});
+ canvas.addEventListener("pointercancel",pointerEnd,{passive:false});
+ $("forageBtn").onclick=forageToggle;
+ $("restBtn").onclick=restToggle;
+ $("evolveBtn").onclick=evolve;
+ $("migrateBtn").onclick=migrate;
+ $("saveBtn").onclick=save;
+ $("resetBtn").onclick=()=>{if(confirm("Reset the lineage?")){localStorage.removeItem(SAVE_KEY);location.reload()}};
  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active")});
 }
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));$("saveStatus").textContent="saved";setTimeout(()=>$("saveStatus").textContent="autosave on",900)}catch(e){}}
-function load(){const raw=localStorage.getItem(SAVE_KEY);if(!raw)return false;try{state=Object.assign(fresh(),JSON.parse(raw));return true}catch(e){return false}}
+function load(){
+ let raw=localStorage.getItem(SAVE_KEY);
+ if(!raw)raw=localStorage.getItem("evolva-save-v6");
+ if(!raw)return false;
+ try{
+  const loaded=JSON.parse(raw),base=fresh();
+  state=Object.assign(base,loaded);
+  state.paths=Object.assign(base.paths,loaded.paths||{});
+  state.inventory=Object.assign(base.inventory,loaded.inventory||{});
+  state.target=null;state.mode="observe";
+  return true;
+ }catch(e){return false}
+}
 function start(freshGame=false){
  if(freshGame){localStorage.removeItem(SAVE_KEY);state=fresh()}else load();
  if(!state.resources.length)spawnFood(58);if(!state.organisms.length)populate();if(!state.logs.length)log("The lineage entered a living ecosystem.");
@@ -344,4 +435,4 @@ function start(freshGame=false){
 let running=false;function loop(){if(!running)return;update();draw();requestAnimationFrame(loop)}
 window.addEventListener("error",e=>{const x=$("error");x.hidden=false;x.textContent=e.message});
 $("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=6").catch(()=>{});
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=6.1").catch(()=>{});

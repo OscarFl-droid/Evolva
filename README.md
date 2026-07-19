@@ -1,59 +1,22 @@
-# EVOLVA v6 — Foundation and Feel Update
+# EVOLVA v6.1 — Stability and Interaction Repair
 
-Version 6 replaces the permanent directional controls with direct interaction and establishes a shared survival simulation for the player and all other organisms.
+This release audits and repairs the v6 foundation build.
 
-## Interaction
+## Fixed
 
-- Tap anywhere in the world to move there.
-- Hold and drag to continue directing movement.
-- Double-tap expands the visible field.
-- Long-press near another organism to inspect its condition and current behaviour.
-- FORAGE delegates immediate survival decisions to the organism.
-- REST enters a low-consumption recovery state.
-- EVOLVE appears permanently but only succeeds when sufficient ecological experience has accumulated.
+- Restored the backpack.
+- Collected food is metabolised when energy is needed and stored when energy is high.
+- Stored resources can be invested into genotype pathways.
+- Replaced duplicate touch and pointer listeners with one pointer-event system.
+- Corrected conversion from iPhone screen coordinates to canvas and world coordinates.
+- Added pointer capture so dragging remains reliable near the canvas edge.
+- Removed the accidental double-tap zoom behaviour.
+- Added a clear crosshair at the exact selected destination.
+- Rebuilt terrain generation using stable integer world coordinates. The landscape no longer changes as the camera moves.
+- Save loading now safely merges missing inventory and pathway fields.
+- Added migration back to the Ecology panel.
+- Bumped the service-worker cache to `evolva-v6-1`.
 
-## Shared organism simulation
+## Upload
 
-The player and non-player organisms use the same locomotor basis and the same broad survival variables:
-
-- energy
-- water
-- health
-- biomass
-- hunger
-- fear
-- curiosity
-- aggression
-- genes
-- current behavioural state
-
-Non-player organisms may forage, rest, inspect, ignore, hunt or flee. Predation is a risk/reward decision based on hunger, relative size, health, injury risk and nearby alternatives.
-
-## Genotype to phenotype
-
-Collected materials are assimilated automatically and bias seven developmental paths:
-
-- metabolism
-- structure
-- growth
-- sensing
-- defence
-- homeostasis
-- symbiosis
-
-Evolution fixes one supported function at a time. Fixed genes alter physiology, ecological fit, movement, water use, defence and visible anatomy.
-
-## GitHub Pages update
-
-Replace all repository files with the contents of this package:
-
-- index.html
-- styles.css
-- game.js
-- manifest.webmanifest
-- sw.js
-- README.md
-- .nojekyll
-- icons/icon.svg
-
-The service-worker cache is `evolva-v6`. Close the old Safari tab after deployment and reopen the GitHub Pages URL.
+Replace all files in the GitHub repository with this package, including `sw.js`. Close the old Safari tab after deployment and reopen the site.
