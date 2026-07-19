@@ -1,10 +1,10 @@
 {
-  "name": "EVOLVA \u2014 Pocket Evolution",
+  "name": "EVOLVA v5 \u2014 Niche Genetics Survival",
   "short_name": "EVOLVA",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#07110d",
-  "theme_color": "#07110d",
+  "background_color": "#06100c",
+  "theme_color": "#06100c",
   "orientation": "portrait",
   "icons": [
     {

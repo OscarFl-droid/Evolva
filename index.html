@@ -1,124 +1,149 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#07110d">
+  <meta name="theme-color" content="#06100c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Evolva">
-  <title>EVOLVA — Pocket Evolution</title>
-  <link rel="manifest" href="manifest.webmanifest?v=4">
+  <meta name="apple-mobile-web-app-title" content="EVOLVA">
+  <title>EVOLVA v5 — Niche Genetics Survival</title>
+  <link rel="manifest" href="manifest.webmanifest?v=5">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
-<noscript>This game requires JavaScript.</noscript>
+<noscript>EVOLVA requires JavaScript.</noscript>
 
 <div id="startScreen" class="modal visible">
   <div class="modal-card">
+    <div class="logo-pet" aria-hidden="true"></div>
     <h1>EVOLVA</h1>
-    <p>Guide a pet lineage from molecular chemistry to open-ended macrolife.</p>
-    <button id="startButton" class="primary">START / CONTINUE</button>
-    <button id="newGameButton">NEW LINEAGE</button>
-    <p class="small">Progress is saved locally on this device.</p>
+    <p class="tagline">OPEN-ENDED NICHE GENETICS SURVIVAL</p>
+    <p>Build a lineage through metabolism, growth, ecological selection, gene gain and gene loss.</p>
+    <button id="continueButton" class="primary">START / CONTINUE</button>
+    <button id="newButton">NEW LINEAGE</button>
+    <p class="fine">Local autosave · offline-capable · portrait mobile</p>
     <div id="startupError" class="error" hidden></div>
   </div>
 </div>
 
 <main class="app">
   <header class="panel header">
-    <div><h1>EVOLVA</h1><div class="subtitle">POCKET EVOLUTION SIMULATOR</div></div>
-    <div class="clock"><strong id="cycleLabel">CYCLE 1</strong><span id="timeLabel">DAWN</span></div>
+    <div>
+      <h1>EVOLVA <small>v5</small></h1>
+      <div class="subtitle">NICHE GENETICS SURVIVAL</div>
+    </div>
+    <div class="cycle">
+      <b id="cycleLabel">CYCLE 1</b>
+      <span id="modeLabel">MANUAL</span>
+    </div>
   </header>
 
   <section class="panel world-panel">
-    <canvas id="gameCanvas" width="384" height="480" aria-label="Game world"></canvas>
+    <canvas id="gameCanvas" width="420" height="520" aria-label="Procedural biome"></canvas>
 
-    <div class="world-tag left">
-      <strong id="biomeName">TIDAL POOL</strong>
-      <span id="biomeSummary">warm · wet · mineral-rich</span>
+    <div class="world-chip biome-chip">
+      <b id="biomeName">TIDAL POOL</b>
+      <span id="biomeDetail">saline · cyclic · mineral-rich</span>
     </div>
-    <div class="world-tag right">
-      <strong id="stageName">MOLECULAR PET</strong>
-      <span id="stageSummary">reactive chemistry</span>
+    <div class="world-chip lineage-chip">
+      <b id="lineageName">PROTO-LINEAGE</b>
+      <span id="lineageDetail">mass 1.0 · zoom 1.00×</span>
     </div>
 
-    <div class="world-dpad" aria-label="Movement controls">
+    <div id="messageBanner" class="message-banner" hidden></div>
+
+    <div class="world-dpad" aria-label="Movement">
       <i></i><button data-dir="up">▲</button><i></i>
       <button data-dir="left">◀</button><button data-dir="stop">●</button><button data-dir="right">▶</button>
       <i></i><button data-dir="down">▼</button><i></i>
     </div>
 
-    <div id="behaviourBadge" class="behaviour-badge">MANUAL</div>
-    <div id="eventBanner" class="event-banner" hidden></div>
+    <div class="radar">
+      <span><i class="dot food"></i>food</span>
+      <span><i class="dot prey"></i>prey</span>
+      <span><i class="dot predator"></i>predator</span>
+    </div>
   </section>
 
-  <section class="panel stats">
-    <div class="stat"><span>ENERGY <b id="energyValue">72</b></span><div class="bar"><i id="energyBar"></i></div></div>
-    <div class="stat"><span>WATER <b id="waterValue">68</b></span><div class="bar"><i id="waterBar"></i></div></div>
-    <div class="stat"><span>HEALTH <b id="healthValue">92</b></span><div class="bar"><i id="healthBar"></i></div></div>
-    <div class="stat"><span>COMPLEXITY <b id="complexityValue">4</b></span><div class="bar"><i id="complexityBar"></i></div></div>
+  <section class="panel meters">
+    <div class="meter"><span>ENERGY <b id="energyText">72</b></span><div><i id="energyBar"></i></div></div>
+    <div class="meter"><span>WATER <b id="waterText">68</b></span><div><i id="waterBar"></i></div></div>
+    <div class="meter"><span>HEALTH <b id="healthText">92</b></span><div><i id="healthBar"></i></div></div>
+    <div class="meter"><span>BIOMASS <b id="massText">1.0</b></span><div><i id="massBar"></i></div></div>
+    <div class="meter wide"><span>EVOLUTION POTENTIAL <b id="potentialText">0</b></span><div><i id="potentialBar"></i></div></div>
   </section>
 
   <section class="panel actions">
-    <button id="forageButton" data-action="forage">FORAGE<small>autonomous roaming</small></button>
-    <button data-action="rest">REST<small>repair damage</small></button>
-    <button data-action="metabolize">METABOLIZE<small>convert reserves</small></button>
-    <button data-action="divide">DIVIDE<small>mutate lineage</small></button>
-    <button data-action="migrate">MIGRATE<small>change biome</small></button>
-    <button data-action="adapt">ADAPT<small>environmental response</small></button>
-    <button id="evolveButton" class="primary evolve">EVOLVE</button>
+    <button id="forageButton" data-action="forage">FORAGE<small>seek food, evade threats</small></button>
+    <button id="restButton" data-action="rest">REST<small>recover with low water loss</small></button>
+    <button data-action="divide">DIVIDE<small>convert reserves into growth</small></button>
+    <button data-action="migrate">MIGRATE<small>enter another niche</small></button>
+    <button id="evolveButton" class="primary wide" data-action="evolve">EVOLVE<small>gain or lose one function</small></button>
   </section>
 
-  <section class="panel tab-panel">
+  <section class="panel tabs-panel">
     <nav class="tabs">
-      <button class="tab active" data-tab="inventory">BACKPACK</button>
-      <button class="tab" data-tab="biology">BIOLOGY</button>
-      <button class="tab" data-tab="world">WORLD</button>
+      <button class="tab active" data-tab="pack">PACK</button>
+      <button class="tab" data-tab="genome">GENOME</button>
+      <button class="tab" data-tab="phenotype">PHENOTYPE</button>
+      <button class="tab" data-tab="ecology">ECOLOGY</button>
       <button class="tab" data-tab="log">LOG</button>
     </nav>
 
-    <div id="inventoryTab" class="tab-content active">
-      <p class="section-note">Tap an object to feed it to your pet. Materials bias structure and future evolution.</p>
+    <div id="packTab" class="tab-content active">
+      <p class="section-note">Energy-rich finds are metabolised automatically while energy is low. Surplus is stored here. Tap a stored item to deliberately invest it into the genotype network.</p>
+      <div id="reserveSummary" class="reserve-summary"></div>
       <div id="inventoryGrid" class="inventory-grid"></div>
     </div>
 
-    <div id="biologyTab" class="tab-content">
+    <div id="genomeTab" class="tab-content">
+      <p class="section-note">Resources push different developmental pathways. Connected thresholds unlock genes; evolution then fixes one gain or loss into the lineage.</p>
+      <div id="geneTree" class="gene-tree"></div>
+      <h2>Heritable genes</h2>
+      <div id="geneList" class="chips"></div>
+      <h2>Rare variants</h2>
+      <div id="rareList" class="chips"></div>
+    </div>
+
+    <div id="phenotypeTab" class="tab-content">
       <div class="data-grid">
-        <div><span>Generation</span><strong id="generationValue">1</strong></div>
-        <div><span>Cells</span><strong id="cellsValue">0</strong></div>
-        <div><span>Genome</span><strong id="genomeValue">0 bp</strong></div>
-        <div><span>Scale</span><strong id="scaleValue">0.8 nm</strong></div>
+        <div><span>Generation</span><strong id="generationText">1</strong></div>
+        <div><span>Body scale</span><strong id="bodyScaleText">microscopic</strong></div>
+        <div><span>Trophic mode</span><strong id="trophicText">scavenger</strong></div>
+        <div><span>Niche fit</span><strong id="fitText">45%</strong></div>
       </div>
-      <h2>Active biological effects</h2>
-      <div id="effectList" class="cards"></div>
-      <h2>Retained traits</h2>
-      <div id="traitList" class="chips"></div>
-      <h2>Morphology</h2>
-      <div id="morphologyList" class="cards"></div>
+      <h2>Generated phenotype</h2>
+      <div id="phenotypeCards" class="cards"></div>
+      <h2>Morphological expression</h2>
+      <div id="morphologyCards" class="cards"></div>
     </div>
 
-    <div id="worldTab" class="tab-content">
+    <div id="ecologyTab" class="tab-content">
+      <h2>Biome resource profile</h2>
+      <div id="resourceProfile"></div>
       <h2>Selection pressures</h2>
-      <div id="pressureList"></div>
-      <h2>Current survival fit</h2>
-      <div id="fitCard" class="card"></div>
-      <h2>Known biomes</h2>
-      <div id="biomeList" class="cards"></div>
+      <div id="pressureProfile"></div>
+      <h2>Local organisms</h2>
+      <div id="populationCards" class="cards"></div>
+      <h2>Known niches</h2>
+      <div id="biomeCards" class="cards"></div>
     </div>
 
-    <div id="logTab" class="tab-content"><div id="logList" class="log-list"></div></div>
+    <div id="logTab" class="tab-content">
+      <div id="logList" class="log-list"></div>
+    </div>
   </section>
 
   <footer>
     <button id="saveButton">SAVE</button>
     <button id="resetButton">RESET</button>
-    <span id="saveStatus">Autosave enabled</span>
+    <span id="saveStatus">autosave on</span>
   </footer>
 </main>
 
-<script src="game.js?v=4" defer></script>
+<script src="game.js?v=5" defer></script>
 </body>
 </html>

@@ -1,40 +1,98 @@
-# EVOLVA v4 — Pocket Evolution
+# EVOLVA v5 — Open-ended Niche Genetics Survival
 
-This release improves mobile playability and makes traits functionally important.
+EVOLVA v5 is a major systems rebuild focused on ecological survival, genotype-to-phenotype development and open-ended lineage change.
 
-## Version 4 changes
+## Major version 5 systems
 
-- The directional pad is now overlaid on the environment window.
-- FORAGE is a toggle. While active, the pet autonomously moves once every three seconds.
-- Directional sensing improves target selection and collection distance.
-- Motility increases movement speed.
-- Shells and skeletons reduce damage but slow movement.
-- Photosynthetic tissue generates energy in bright environments and alters autonomous behaviour.
-- External digestion biases foraging toward amino acids and spores.
-- Water retention, osmoregulation, thermal tolerance, antifreeze chemistry and detoxification alter survival in relevant biomes.
-- The pet drinks automatically when it reaches the water region.
-- Fresh water and oasis water hydrate efficiently.
-- Saline, acidic, frozen and thermal water impose biologically appropriate constraints, which can be mitigated by evolved traits.
-- The Biology screen now describes active functional effects.
-- The World screen reports current environmental fit.
-- Cache version upgraded to v4 to prevent GitHub Pages serving the previous release.
+### Behavioural modes
+- **REST is a toggle.** While active, energy and health recover continuously.
+- Water consumption during rest is drastically reduced.
+- Rest stops manual movement and autonomous foraging.
+- Rest automatically ends when energy and health are nearly full.
+- **FORAGE is a toggle.** The organism moves autonomously every three seconds.
+- Forage seeks resources and edible prey while avoiding larger predators.
+- Sensing genes extend avoidance and improve target selection.
 
-## Updating the existing GitHub repository
+### Automatic metabolism and biome resource ecology
+- Energy-bearing resources are metabolised automatically when collected and energy is below full.
+- When energy is full, the resource is stored in the backpack.
+- Stored resources can be invested deliberately into a developmental path.
+- Every biome has a distinct weighted abundance profile.
+- Examples:
+  - Tidal Pool: minerals, osmolytes and pigments
+  - Fungal Forest: spores, amino acids and sugars
+  - Wind Desert: pigments and minerals, but little food
+  - Acid Marsh: abundant nutrients with toxin risk
+  - Frozen Basin: lipid-rich but sparse
+  - Hydrothermal Shelf: mineral-rich and sugar-poor
 
-Upload and replace all files in the repository root, including `sw.js`.
+### Growth and agar-style camera scaling
+- **DIVIDE** converts energy and protein reserves into biomass.
+- Every growth event increases physical size.
+- The biome camera progressively zooms out as biomass rises.
+- Larger organisms therefore perceive a wider ecological field.
+- Mass also changes movement speed, predation risk and prey availability.
 
-After GitHub Pages redeploys, open the game URL and refresh Safari. If the old version remains visible, close the browser tab and reopen it. The v4 service worker will remove the older cache.
+### Genotype network
+The former flat trait list has been replaced by seven connected developmental paths:
 
-## GitHub Pages
+- Metabolism
+- Structure
+- Growth
+- Sensing
+- Defence
+- Homeostasis
+- Symbiosis
 
-The repository root must contain:
+Collected items push different paths. Thresholds make functions available, while EVOLVE fixes an individual gain or loss. The active genotype generates:
 
-- index.html
-- styles.css
-- game.js
-- manifest.webmanifest
-- sw.js
-- .nojekyll
-- icons/icon.svg
+- sprite anatomy
+- metabolism
+- trophic mode
+- movement
+- resource use
+- water balance
+- damage resistance
+- predator avoidance
+- ecological niche fit
+- future evolution direction
 
-The game requires no build process.
+### Incremental evolution
+- EVOLVE changes one heritable function at a time.
+- Most events are gains of a function supported by the current build path.
+- Poor niche fit increases the chance of loss-of-function evolution.
+- Rare variants can appear at low frequency.
+- Open-ended branch names are generated after the defined thresholds are exhausted.
+- Each fixed gene is expressed in the organism's visible sprite where applicable.
+
+### Dynamic predators and prey
+- Every biome contains prey and predators.
+- Non-player organisms spontaneously gain or lose mass and traits.
+- Prey can be food, competitors or sources of ecological teaching.
+- Predators can reduce health and biomass.
+- Severe attacks can remove an evolved function.
+- Small predators can be repelled or consumed by suitable offensive phenotypes.
+- Risk and reward scale with relative biomass and genotype.
+
+## Updating GitHub Pages
+
+Replace every file in the repository root with this release:
+
+- `index.html`
+- `styles.css`
+- `game.js`
+- `manifest.webmanifest`
+- `sw.js`
+- `.nojekyll`
+- `README.md`
+- `icons/icon.svg`
+
+Do not upload the outer `evolva-github-v5` folder itself. Upload its contents.
+
+The cache identifier is `evolva-v5`; the new service worker deletes older caches during activation.
+
+After deployment, close the old Safari tab and reopen:
+
+`https://oscarfl-droid.github.io/evolva/`
+
+Version 4 saves are imported into the new genotype model where possible.
