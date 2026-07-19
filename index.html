@@ -6,15 +6,15 @@
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v7.3</title>
-<link rel="manifest" href="manifest.webmanifest?v=7.3">
+<title>EVOLVA v7.4</title>
+<link rel="manifest" href="manifest.webmanifest?v=7.4">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=7.3">
+<link rel="stylesheet" href="styles.css?v=7.4">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small>v7.3</small></h1>
+    <h1>EVOLVA <small>v7.4</small></h1>
     <p class="tag">LINEAGE ENGINE</p>
     <p>Guide one lineage through ecology, nutrition, behaviour and major evolutionary epochs.</p>
     <button id="continue" class="primary">CONTINUE LINEAGE</button>
@@ -64,7 +64,7 @@
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small>v7.3</small></h1>
+      <h1>EVOLVA <small>v7.4</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -78,6 +78,19 @@
     <div id="hint" class="hint">Tap to move · hold and drag to guide</div>
     <div id="toast" class="toast" hidden></div>
     <div id="inspect" class="inspect" hidden></div>
+    <div id="tileReadout" class="tile-readout">
+      <b id="tileName">MOIST SUBSTRATE</b>
+      <span id="tileEffect">No immediate physiological effect</span>
+    </div>
+    <div id="encounterPanel" class="encounter-panel" hidden>
+      <div class="encounter-head">
+        <b id="encounterTitle">CHEMICAL ENCOUNTER</b>
+        <span id="encounterOdds">uncertain</span>
+      </div>
+      <div id="encounterRolls" class="encounter-rolls"></div>
+      <p id="encounterText"></p>
+      <button id="encounterCloseBtn">CONTINUE</button>
+    </div>
     <div class="quick-actions">
       <button id="forageBtn">FORAGE</button>
       <button id="restBtn">REST</button>
@@ -158,8 +171,11 @@
     </div>
 
     <div id="packTab" class="tab-content">
-      <p class="note">Surplus resources enter the backpack. Tap to metabolise immediately; hold resources for the next five-level evolution to bias its outcome.</p>
+      <p class="note">Surplus resources enter the backpack. Eating changes physiology now and leaves a nutritional imprint on the next major evolution.</p>
+      <div id="dietReadout" class="diet-readout"></div>
       <div id="inventoryGrid" class="inventory-grid"></div>
+      <h2>DISCOVERED DEVELOPMENTAL COMBINATIONS</h2>
+      <div id="recipeCards" class="cards compact"></div>
     </div>
 
     <div id="ecologyTab" class="tab-content">
@@ -176,6 +192,6 @@
   <footer><span id="saveStatus">autosaving</span></footer>
 </main>
 
-<script src="game.js?v=7.3" defer></script>
+<script src="game.js?v=7.4" defer></script>
 </body>
 </html>

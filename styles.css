@@ -80,3 +80,13 @@ linear-gradient(#07120d,#08150f)}
 .epoch-atlas-hint b{color:var(--gold)}
 .living-atlas.is-dragging{cursor:grabbing}.living-atlas{cursor:grab}
 @media(prefers-reduced-motion:reduce){.living-atlas *{animation:none!important}}
+
+.tile-readout{position:absolute;left:8px;top:36px;max-width:58%;padding:6px 7px;background:rgba(4,11,8,.88);border:1px solid rgba(255,255,255,.25);pointer-events:none}
+.tile-readout b{display:block;font-size:7px;color:var(--gold)}.tile-readout span{display:block;margin-top:2px;font-size:5px;color:var(--muted);line-height:1.35}
+.encounter-panel{position:absolute;z-index:12;left:8px;right:8px;top:92px;padding:10px;background:rgba(4,11,8,.97);border:3px solid var(--gold);box-shadow:4px 4px #020504}
+.encounter-head{display:flex;justify-content:space-between;align-items:center}.encounter-head b{font-size:9px;color:var(--gold)}.encounter-head span{font-size:6px;color:var(--muted)}
+.encounter-rolls{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.roll-card{padding:7px;background:#0a1913;border:1px solid #315b47;text-align:center}.roll-card span{display:block;font-size:5px;color:var(--muted)}.roll-card b{display:block;font-size:18px;margin-top:3px}.roll-card.good b{color:var(--green)}.roll-card.bad b{color:var(--red)}
+.encounter-panel p{font-size:7px;line-height:1.45;color:var(--text)}.encounter-panel button{width:100%;padding:8px;background:#173d2d;border:2px solid #315b47}
+.diet-readout{margin:6px 0 8px;padding:8px;background:#08150f;border:2px solid #315b47;font-size:6px;color:var(--muted);line-height:1.45}.diet-readout b{color:var(--gold)}
+.recipe-card{background:#0a1913;border:2px solid #244a38;padding:7px;font-size:6px;color:var(--muted)}.recipe-card b{display:block;color:var(--text);font-size:8px;margin-bottom:3px}.recipe-card.active{border-color:var(--gold);box-shadow:inset 0 0 0 1px rgba(255,214,106,.2)}
+.inventory-item .imprint{color:var(--purple)!important}

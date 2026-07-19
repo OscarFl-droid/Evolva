@@ -4,7 +4,7 @@ const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v7-3",LEGACY_SAVE_KEY="evolva-save-v7-2",OLDER_SAVE_KEYS=["evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
+const SAVE_KEY="evolva-save-v7-4",LEGACY_SAVE_KEY="evolva-save-v7-3",OLDER_SAVE_KEYS=["evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -32,14 +32,23 @@ const ORIGINS=[
 ];
 
 const FOOD={
- sugar:{color:"#ffb6a6",energy:18,axis:"power",name:"Sugar"},
- lipid:{color:"#ffd66a",energy:25,axis:"mobility",name:"Lipid"},
- amino:{color:"#91ff9c",energy:13,axis:"power",name:"Amino acids"},
- mineral:{color:"#f18b66",energy:8,axis:"resilience",name:"Mineral"},
- pigment:{color:"#7de0ff",energy:3,axis:"cognition",name:"Pigment"},
- spore:{color:"#ddb477",energy:14,axis:"communication",name:"Spore"}
+ sugar:{color:"#ffb6a6",energy:18,axis:"power",name:"Sugar",imprint:"rapid metabolism"},
+ lipid:{color:"#ffd66a",energy:25,axis:"mobility",name:"Lipid",imprint:"membranes and propulsion"},
+ amino:{color:"#91ff9c",energy:13,axis:"power",name:"Amino acids",imprint:"growth and contractile tissue"},
+ mineral:{color:"#f18b66",energy:8,axis:"resilience",name:"Mineral",imprint:"scaffolds and armour"},
+ pigment:{color:"#7de0ff",energy:3,axis:"cognition",name:"Pigment",imprint:"light sensing and signalling"},
+ spore:{color:"#ddb477",energy:14,axis:"communication",name:"Spore",imprint:"symbiosis and chemical exchange"}
 };
 
+
+const DIET_RECIPES=[
+ {id:"motile_membrane",name:"Motile Membrane",needs:{lipid:2,sugar:1},axes:{mobility:8,adaptability:3},desc:"Energy-rich membranes favour cilia and directed locomotion."},
+ {id:"mineral_body",name:"Reinforced Body",needs:{mineral:2,amino:2},axes:{resilience:8,power:6},desc:"Protein laid around minerals favours armour and internal support."},
+ {id:"sensory_surface",name:"Sensory Surface",needs:{pigment:2,lipid:1},axes:{cognition:9,communication:3},desc:"Pigmented membranes favour photoreception and signal processing."},
+ {id:"symbiotic_metabolism",name:"Symbiotic Metabolism",needs:{spore:2,sugar:1},axes:{communication:9,innovation:6},desc:"Repeated symbiont feeding favours cooperative metabolism."},
+ {id:"toxic_compartment",name:"Chemical Arsenal",needs:{spore:1,mineral:1,amino:1},axes:{innovation:7,resilience:5},desc:"Mixed chemical and structural intake favours detoxification and toxin storage."},
+ {id:"plastic_generalist",name:"Plastic Generalist",needs:{sugar:1,lipid:1,amino:1,pigment:1},axes:{adaptability:10,innovation:3},desc:"A varied diet preserves developmental flexibility rather than one narrow specialisation."}
+];
 const ATLAS=[
 {id:"selective membrane",name:"Selective Membrane",axis:"adaptability",tier:1,icon:"◌",req:[],min:{adaptability:1},desc:"Controls passive exchange and reduces water loss.",effect:"Water use −18%"},
 {id:"contractile cortex",name:"Contractile Cortex",axis:"power",tier:1,icon:"◍",req:[],min:{power:1},desc:"Organised force generation beneath the membrane.",effect:"Force +15%"},
@@ -238,6 +247,7 @@ function fresh(){
  genes:[],pendingEpochs:0,completedEpochs:0,epochFeed:{},epochForecast:[],
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
  atlasView:{x:430,y:360,zoom:1},
+ dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,lastTileKey:"",
  resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
@@ -295,6 +305,21 @@ function terrainType(gx,gy){
  n=(n^(n>>>13))*1274126177>>>0;return n%10;
 }
 function isWaterAt(x,y){return terrainType(Math.floor(x/95),Math.floor(y/95))<2}
+function localTile(x=state.x,y=state.y){
+ const gx=Math.floor(x/95),gy=Math.floor(y/95),n=terrainType(gx,gy),b=BIOMES[state.biome];
+ if(n<2){
+   const mineral=state.biome===3?"acidic":state.biome===5?"mineral-rich":state.biome===4?"near-freezing":"fresh";
+   return{key:`${state.biome}:${gx}:${gy}:water`,name:`${mineral.toUpperCase()} WATER`,water:true,
+    effect:state.biome===3?"Hydrates slowly but causes chemical stress":state.biome===5?"Hydrates and adds mineral pressure":state.biome===4?"Hydrates but imposes cold stress":"Passive hydration active"};
+ }
+ if(n===4)return{key:`${state.biome}:${gx}:${gy}:shelter`,name:"SHELTERED SUBSTRATE",water:false,effect:"Rest and repair are more effective here",shelter:true};
+ if(n===7)return{key:`${state.biome}:${gx}:${gy}:rough`,name:"ROUGH SUBSTRATE",water:false,effect:"Movement costs more; locomotor pressure increases",rough:true};
+ return{key:`${state.biome}:${gx}:${gy}:ground`,name:b.moisture>70?"MOIST SUBSTRATE":"DRY SUBSTRATE",water:false,effect:b.moisture>70?"Low water loss":"Accelerated water loss"};
+}
+function renderTile(){
+ const t=localTile();$("tileName").textContent=t.name;$("tileEffect").textContent=t.effect;
+ if(t.key!==state.lastTileKey){state.lastTileKey=t.key;renderEcology()}
+}
 function weightedFood(){
  const weights={sugar:3,lipid:3,amino:4,mineral:4,pigment:3,spore:2};
  if(state.biome===1)weights.spore=10;if(state.biome===2)weights.pigment=8;if(state.biome===5)weights.mineral=12;
@@ -352,6 +377,22 @@ function updateOrganism(o){
 }
 function damage(n){n/=phenotype().defense;state.health=clamp(state.health-n);toast("ECOLOGICAL INJURY");if(state.health<=0){state.health=35;state.energy=25;state.water=30;state.mass=Math.max(.7,state.mass*.6);state.x=WORLD/2;state.y=WORLD/2;log("The lineage persisted through a reduced surviving propagule.")}}
 
+function rememberDiet(type,amount=1){
+ state.dietMemory[type]=clamp((state.dietMemory[type]||0)+amount,0,30);
+ state.dietHistory.push(type);state.dietHistory=state.dietHistory.slice(-12);
+ // old imprints slowly fade, but feeding choices remain meaningful
+ for(const k of Object.keys(state.dietMemory))if(k!==type)state.dietMemory[k]=Math.max(0,state.dietMemory[k]-.08);
+}
+function recipeStrength(recipe,source=state.dietMemory){
+ return Math.min(...Object.entries(recipe.needs).map(([k,n])=>(source[k]||0)/n));
+}
+function activeRecipes(source=state.dietMemory){return DIET_RECIPES.filter(r=>recipeStrength(r,source)>=1)}
+function dietAxisBonus(axis,source=state.dietMemory){
+ let v=0;
+ for(const [type,n] of Object.entries(source))if(FOOD[type].axis===axis)v+=n*1.35;
+ for(const r of activeRecipes(source))v+=(r.axes[axis]||0);
+ return v
+}
 function collect(){
  for(let i=state.resources.length-1;i>=0;i--){
   const r=state.resources[i];
@@ -359,13 +400,13 @@ function collect(){
    const e=FOOD[r.type].energy*phenotype().foodYield;
    if(state.energy<58){state.energy=clamp(state.energy+e);log(`${FOOD[r.type].name} metabolised (+${Math.round(e)} energy).`)}
    else{state.inventory[r.type]++;log(`${FOOD[r.type].name} stored for future development.`)}
-   addPressure(FOOD[r.type].axis,.5);addXP(gene("pseudopods")?6:5,`Resource acquired: ${FOOD[r.type].name}`);state.resources.splice(i,1);save();
+   rememberDiet(r.type,.55);addPressure(FOOD[r.type].axis,.5);addXP(gene("pseudopods")?6:5,`Resource acquired: ${FOOD[r.type].name}`);state.resources.splice(i,1);save();
   }
  }
 }
 function consumeResource(type){
  if(!state.inventory[type])return;
- state.inventory[type]--;state.energy=clamp(state.energy+FOOD[type].energy*phenotype().foodYield);addPressure(FOOD[type].axis,.8);log(`${FOOD[type].name} consumed from backpack.`);renderAll();save()
+ state.inventory[type]--;state.energy=clamp(state.energy+FOOD[type].energy*phenotype().foodYield);rememberDiet(type,1.5);addPressure(FOOD[type].axis,1.1);log(`${FOOD[type].name} consumed from backpack.`);renderAll();save()
 }
 function spendAdapt(axis){
  if(state.adaptPoints<=0)return;state.adaptPoints--;state.axes[axis]++;atlasDirty=true;log(`${AXES[axis].name} permanently increased.`);renderAll();save()
@@ -373,20 +414,62 @@ function spendAdapt(axis){
 function movementTarget(x,y){state.target={x,y};state.mode="move";renderMode()}
 function forageToggle(){state.mode=state.mode==="forage"?"observe":"forage";state.target=null;renderAll()}
 function restToggle(){state.mode=state.mode==="rest"?"observe":"rest";state.target=null;renderAll();if(state.mode==="rest")addPressure("resilience",.2)}
+function d20(){return Math.floor(Math.random()*20)+1}
+function encounterModifier(axis){return Math.floor((derivedAxis(axis)-1)/2)}
+function relationScore(o){
+ return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
+       -(o.aggression*7+o.hunger/18)+(gene("quorum signal")?3:0)+(gene("cooperative exchange")?4:0);
+}
+function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true){
+ state.encounter={title,odds,playerRoll,otherRoll,text};
+ $("encounterTitle").textContent=title;$("encounterOdds").textContent=odds;
+ $("encounterRolls").innerHTML=`<div class="roll-card ${playerGood?"good":"bad"}"><span>YOUR RESPONSE</span><b>${playerRoll}</b></div><div class="roll-card ${playerGood?"bad":"good"}"><span>OTHER ORGANISM</span><b>${otherRoll}</b></div>`;
+ $("encounterText").textContent=text;$("encounterPanel").hidden=false;
+}
+function closeEncounter(){$("encounterPanel").hidden=true;state.encounter=null;save()}
+function fleeFrom(o){
+ const d=Math.hypot(state.x-o.x,state.y-o.y)||1;
+ movementTarget(clamp(state.x+(state.x-o.x)/d*220,20,WORLD-20),clamp(state.y+(state.y-o.y)/d*220,20,WORLD-20));
+ state.mode="move";addPressure("mobility",1.5);
+}
 function interact(){
+ if(state.encounter)return;
  const near=[...state.organisms].sort((a,b)=>Math.hypot(a.x-state.x,a.y-state.y)-Math.hypot(b.x-state.x,b.y-state.y))[0];
  const range=phenotype().interactionRange;
  if(!near||Math.hypot(near.x-state.x,near.y-state.y)>range){toast("NO ORGANISM IN RANGE");return}
- const d=Math.hypot(near.x-state.x,near.y-state.y);
- if((gene("predatory strike")||gene("toxin organelle"))&&near.mass<state.mass*1.15){
-   let hit=10*phenotype().force*(gene("toxin organelle")?1.35:1);
-   near.health-=hit;state.energy=clamp(state.energy-4);addPressure("power",1.6);addPressure("innovation",gene("toxin organelle")?.8:.1);
-   if(near.health<=0){state.organisms=state.organisms.filter(o=>o!==near);state.energy=clamp(state.energy+14);addXP(12,"Successful predation")}
-   toast(gene("toxin organelle")?"TOXIN DISCHARGE":"PREDATORY STRIKE");save();return;
+ const hostileIntent=(gene("predatory strike")||gene("toxin organelle"))&&near.mass<state.mass*1.2&&state.energy<82;
+ const pRoll=d20()+(hostileIntent?encounterModifier("power"):encounterModifier("communication"))+(gene("chemical sensing")?2:0);
+ const oRoll=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2);
+ if(hostileIntent){
+   if(pRoll>=oRoll){
+     const hit=Math.round(8*phenotype().force*(gene("toxin organelle")?1.35:1));near.health-=hit;state.energy=clamp(state.energy-4);
+     addPressure("power",1.8);addPressure("innovation",gene("toxin organelle")?1:.15);
+     if(near.health<=0){state.organisms=state.organisms.filter(o=>o!==near);state.energy=clamp(state.energy+16);addXP(14,"Predation changed the lineage");showEncounter("PREDATORY SUCCESS","advantage",pRoll,oRoll,`Your attack overwhelmed the smaller organism for ${hit} damage. It was consumed, restoring energy.`)}
+     else{near.state="fleePlayer";near.stateTimer=300;showEncounter("SUCCESSFUL STRIKE","advantage",pRoll,oRoll,`Your attack inflicted ${hit} damage. The organism released an alarm chemical and fled.`)}
+   }else{
+     const harm=Math.round((5+near.mass/state.mass*4)/phenotype().defense);state.health=clamp(state.health-harm);addPressure("resilience",1.8);fleeFrom(near);
+     showEncounter("COUNTERATTACK","danger",pRoll,oRoll,`The organism anticipated your attack and released a damaging chemical response. You lost ${harm} health and fled.`,false)
+   }
+ }else{
+   const socialTarget=Math.round(relationScore(near));
+   if(pRoll+socialTarget>=oRoll+7){
+     const gain=gene("cooperative exchange")?12:5;state.energy=clamp(state.energy+gain);addPressure("communication",2.4);addPressure("cognition",.8);addXP(10,"A cooperative chemical exchange shaped the lineage");
+     near.state="inspectPlayer";near.stateTimer=260;showEncounter("COOPERATIVE EXCHANGE","favourable",pRoll+socialTarget,oRoll,`Signals were interpreted successfully. Metabolites were exchanged, restoring ${gain} energy and strengthening communication pressure.`)
+   }else if(pRoll+socialTarget>=oRoll){
+     addPressure("communication",1);addPressure("cognition",1);addXP(5,"A neutral encounter was interpreted");
+     near.state="wander";near.stateTimer=220;showEncounter("CAUTIOUS CONTACT","balanced",pRoll+socialTarget,oRoll,"Both organisms exchanged information but neither committed resources or attacked.")
+   }else{
+     const chemical=near.aggression>.45||near.hunger>60;
+     if(chemical){
+       const harm=Math.max(2,Math.round((4+near.aggression*8)/phenotype().defense));state.health=clamp(state.health-harm);addPressure("resilience",1.5);addPressure("cognition",.6);fleeFrom(near);
+       showEncounter("CHEMICAL REJECTION","danger",pRoll+socialTarget,oRoll,`Your signal was misread or rejected. A defensive secretion caused ${harm} damage and your organism fled.`,false)
+     }else{
+       near.state="fleePlayer";near.stateTimer=260;addPressure("communication",.7);
+       showEncounter("CONTACT FAILED","uncertain",pRoll+socialTarget,oRoll,"The other organism interpreted the contact as risky and escaped before exchange could occur.",false)
+     }
+   }
  }
- addPressure("communication",2);addPressure("cognition",.7);addXP(8,"A biological interaction shaped the lineage");
- if(gene("cooperative exchange")){state.energy=clamp(state.energy+8);toast("METABOLITE EXCHANGE")}else toast("CHEMICAL CONTACT");
- save();
+ renderAll();save()
 }
 function forageAI(){
  const threat=state.organisms.find(o=>o.mass>state.mass*1.2&&Math.hypot(o.x-state.x,o.y-state.y)<220);
@@ -394,18 +477,28 @@ function forageAI(){
  const r=nearestResource(state.x,state.y);if(r){movementTarget(r.o.x,r.o.y);state.mode="forage";addPressure("cognition",.05)}
 }
 function ecologyTick(){
- const b=BIOMES[state.biome],p=phenotype(),wet=isWaterAt(state.x,state.y);
- if(state.mode==="rest"){state.energy=clamp(state.energy+3.8);state.health=clamp(state.health+(gene("repair cycle")?4.8:2.8));state.water=clamp(state.water-.1*p.waterUse)}
- else{state.energy=clamp(state.energy-(1.6+Math.log2(state.mass+1)*.22));state.water=clamp(state.water-(b.moisture<20?4.5:1.6)*p.waterUse)}
- if(wet){
-   const uptake=gene("selective membrane")?2.8:4.2;
-   state.water=clamp(state.water+uptake);
-   addPressure("adaptability",.08);
+ const b=BIOMES[state.biome],p=phenotype(),tile=localTile(),beforeWater=state.water;
+ const roughCost=tile.rough?1.22:1;
+ if(state.mode==="rest"){
+   const shelter=tile.shelter?1.5:1;
+   state.energy=clamp(state.energy+3.8*shelter);state.health=clamp(state.health+(gene("repair cycle")?4.8:2.8)*shelter);state.water=clamp(state.water-.1*p.waterUse)
+ }else{
+   state.energy=clamp(state.energy-(1.6+Math.log2(state.mass+1)*.22)*roughCost);
+   state.water=clamp(state.water-(b.moisture<20?4.5:1.6)*p.waterUse)
  }
+ if(tile.water){
+   let uptake=gene("selective membrane")?5.5:7.5;
+   if(state.biome===3)uptake=3.2;if(state.biome===4)uptake=4.5;
+   state.water=clamp(state.water+uptake);addPressure("adaptability",.18);
+   if(state.biome===5)addPressure("resilience",.22);
+   if(state.biome===3){damage(.7);addPressure("resilience",.25)}
+   const gained=Math.round((state.water-beforeWater)*10)/10;
+   if(gained>0)toast(`DRINKING +${gained} WATER`);
+ }
+ if(tile.rough)addPressure("mobility",.2);
  if(gene("photosymbiosis")&&b.light>55)state.energy=clamp(state.energy+2.4);
  if(gene("thermal engine")&&(b.temp>45||b.temp<0))state.energy=clamp(state.energy+2.8);
- const lowFit=Math.max(0,35-fit());
- if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
+ const lowFit=Math.max(0,35-fit());if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
  if(state.energy<5||state.water<5)damage(3.5);
  Object.entries(b.pressure).forEach(([k,v])=>addPressure(k,v*.04));
  state.cycle++;
@@ -442,7 +535,7 @@ function renderEpochInventory(){
  document.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>toggleEpochFeed(b.dataset.feed));$("feedCount").textContent=`${feedTotal()} / 6`
 }
 function scoreNode(node){
- let s=derivedAxis(node.axis)*2+(state.pressures[node.axis]||0)*.45+(BIOMES[state.biome].pressure[node.axis]||0)*4;
+ let s=derivedAxis(node.axis)*2+(state.pressures[node.axis]||0)*.45+(BIOMES[state.biome].pressure[node.axis]||0)*4+dietAxisBonus(node.axis)*.9;
  for(const [type,n] of Object.entries(state.epochFeed))if(FOOD[type].axis===node.axis)s+=n*10;
  s+=node.req.filter(gene).length*4;s-=node.tier*3;
  return s
@@ -467,6 +560,7 @@ function renderForecast(){
  $("epochFeedStage").hidden=true;$("epochForecastStage").hidden=false;
  const combined={};Object.keys(AXES).forEach(a=>combined[a]=(state.pressures[a]||0)+(BIOMES[state.biome].pressure[a]||0)*5);
  Object.entries(state.epochFeed).forEach(([t,n])=>combined[FOOD[t].axis]+=n*12);
+ Object.keys(AXES).forEach(a=>combined[a]+=dietAxisBonus(a));
  const ranked=Object.entries(combined).sort((a,b)=>b[1]-a[1]);
  $("pressureSummary").innerHTML=ranked.slice(0,4).map(([a,v])=>`<div class="pressure-chip">${AXES[a].name}<b>${Math.round(v)}</b></div>`).join("");
  $("epochAtlasHint").innerHTML=`<b>Illuminated Atlas regions:</b> ${ranked.slice(0,3).map(([a])=>AXES[a].name).join(" · ")}. These pressures bias the accessible nodes shown below; locked prerequisites are never bypassed.`;
@@ -486,6 +580,7 @@ function completeEpoch(id){
  state.generation++;state.mass*=1.08+node.tier*.025;state.completedEpochs++;state.pendingEpochs=Math.max(0,state.pendingEpochs-1);
  state.epochFeed={};state.epochForecast=[];
  Object.keys(state.pressures).forEach(k=>state.pressures[k]*=.28);
+ Object.keys(state.dietMemory).forEach(k=>state.dietMemory[k]*=.42);
  log(`Major evolution fixed: ${node.name}. ${node.effect}.`);toast(node.name.toUpperCase());
  $("epochModal").classList.remove("visible");renderAll();save();
  if(state.pendingEpochs>0)setTimeout(openEpoch,350)
@@ -502,8 +597,9 @@ function chooseOrigin(id){
 }
 
 function update(){
- if(simulationPaused())return;
+ if(simulationPaused()||state.encounter)return;
  state.tick++;
+ if(state.tick%20===0)renderTile();
  if(state.mode==="forage"&&state.tick%180===0)forageAI();
  if(state.target&&state.mode!=="rest"){const dx=state.target.x-state.x,dy=state.target.y-state.y,d=Math.hypot(dx,dy)||1,sp=1.45*phenotype().speed;if(d<8){state.target=null;if(state.mode==="move")state.mode="observe"}else{state.vx+=(dx/d)*.09*sp;state.vy+=(dy/d)*.09*sp;addPressure("mobility",.001)}}
  state.vx*=.9;state.vy*=.9;if(state.mode!=="rest"){state.x=clamp(state.x+state.vx,20,WORLD-20);state.y=clamp(state.y+state.vy,20,WORLD-20)}
@@ -563,14 +659,26 @@ function renderLineage(){
  $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("");
  $("atlasSummary").textContent=`${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · biome pressure is illuminating nearby branches`;
 }function renderInventory(){
- $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>`<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]}</em><b style="color:${f.color}">◆</b><span>${f.name.toUpperCase()}</span><small>tap to metabolise</small></button>`).join("");
- document.querySelectorAll("[data-resource]").forEach(b=>b.onclick=()=>consumeResource(b.dataset.resource))
+ const recent=state.dietHistory.slice(-6).map(t=>FOOD[t].name).join(" → ")||"No recent feeding";
+ const strongest=Object.entries(state.dietMemory).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${FOOD[k].name} ${v.toFixed(1)}`).join(" · ");
+ $("dietReadout").innerHTML=`<b>NUTRITIONAL MEMORY</b><br>${recent}<br>Dominant imprints: ${strongest||"none yet"}`;
+ $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>`<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]}</em><b style="color:${f.color}">◆</b><span>${f.name.toUpperCase()}</span><small>energy +${Math.round(f.energy*phenotype().foodYield)}<br><span class="imprint">${f.imprint}</span></small></button>`).join("");
+ document.querySelectorAll("[data-resource]").forEach(b=>b.onclick=()=>consumeResource(b.dataset.resource));
+ $("recipeCards").innerHTML=DIET_RECIPES.map(r=>{const strength=recipeStrength(r),active=strength>=1;return`<div class="recipe-card ${active?"active":""}"><b>${active?"◆":"◇"} ${r.name}</b>${r.desc}<br><small>${Object.entries(r.needs).map(([k,n])=>`${n} ${FOOD[k].name}`).join(" + ")} · ${active?"ACTIVE IMPRINT":Math.round(strength*100)+"% formed"}</small></div>`}).join("")
 }
 function renderEcology(){
- $("ecologyCards").innerHTML=[["Biome",BIOMES[state.biome].name],["Surface state",isWaterAt(state.x,state.y)?"Immersed: passive hydration active":"Terrestrial surface"],["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<300).length} detected locally`],["Niche fit",`${Math.round(fit())}% compatibility`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("")
+ const tile=localTile(),p=phenotype();
+ const hydration=tile.water?(state.biome===3?3.2:state.biome===4?4.5:gene("selective membrane")?5.5:7.5):0;
+ $("ecologyCards").innerHTML=[
+  ["Biome",BIOMES[state.biome].name],
+  ["Exact tile",`${tile.name}<br>${tile.effect}`],
+  ["Water exchange",tile.water?`Approximately +${hydration} hydration each physiology cycle before normal water use`:"No environmental uptake on this tile"],
+  ["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<300).length} detected locally`],
+  ["Niche fit",`${Math.round(fit())}% compatibility`]
+ ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("")
 }
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
-function renderAll(){$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
+function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
 function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;box.innerHTML=`<b style="color:${best.color}">ORGANISM</b><br>mass ${best.mass.toFixed(1)}<br>health ${Math.round(best.health)}<br>state ${best.state}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(state.x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(state.y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
@@ -589,7 +697,7 @@ function bind(){
  $("atlasMinusBtn").onclick=()=>{atlasZoom(.82);drawAtlas()};
  $("atlasPlusBtn").onclick=()=>{atlasZoom(1.22);drawAtlas()};
  canvas.addEventListener("pointerdown",pointerStart,{passive:false});canvas.addEventListener("pointermove",pointerMove,{passive:false});canvas.addEventListener("pointerup",pointerEnd,{passive:false});canvas.addEventListener("pointercancel",pointerEnd,{passive:false});
- $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;
+ $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;$("encounterCloseBtn").onclick=closeEncounter;
  $("forecastBtn").onclick=buildForecast;$("backToFeedBtn").onclick=()=>{$("epochFeedStage").hidden=false;$("epochForecastStage").hidden=true};
  $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active");$("atlasTooltip").hidden=true;atlasDirty=true;if(t.dataset.tab==="lineage")requestAnimationFrame(drawAtlas)})
@@ -601,7 +709,7 @@ function load(){
  try{
   const b=fresh(),x=JSON.parse(raw);state=Object.assign(b,x);
   state.axes=Object.assign(b.axes,x.axes||{});state.pressures=Object.assign(b.pressures,x.pressures||{});
-  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
+  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
   state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
   state.resources=Array.isArray(x.resources)?x.resources:[];state.organisms=Array.isArray(x.organisms)?x.organisms:[];state.logs=Array.isArray(x.logs)?x.logs:[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
@@ -619,4 +727,4 @@ function start(newLineage=false){
 let running=false;function loop(now){if(!running)return;update();draw();drawAtlas(now);requestAnimationFrame(loop)}
 window.addEventListener("error",e=>{const x=$("error");x.hidden=false;x.textContent=e.message});
 $("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.3").catch(()=>{});
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.4").catch(()=>{});
