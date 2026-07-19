@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#07110d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Evolva">
+  <title>EVOLVA — Pocket Evolution</title>
+  <link rel="manifest" href="manifest.webmanifest?v=4">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+<noscript>This game requires JavaScript.</noscript>
+
+<div id="startScreen" class="modal visible">
+  <div class="modal-card">
+    <h1>EVOLVA</h1>
+    <p>Guide a pet lineage from molecular chemistry to open-ended macrolife.</p>
+    <button id="startButton" class="primary">START / CONTINUE</button>
+    <button id="newGameButton">NEW LINEAGE</button>
+    <p class="small">Progress is saved locally on this device.</p>
+    <div id="startupError" class="error" hidden></div>
+  </div>
+</div>
+
+<main class="app">
+  <header class="panel header">
+    <div><h1>EVOLVA</h1><div class="subtitle">POCKET EVOLUTION SIMULATOR</div></div>
+    <div class="clock"><strong id="cycleLabel">CYCLE 1</strong><span id="timeLabel">DAWN</span></div>
+  </header>
+
+  <section class="panel world-panel">
+    <canvas id="gameCanvas" width="384" height="480" aria-label="Game world"></canvas>
+
+    <div class="world-tag left">
+      <strong id="biomeName">TIDAL POOL</strong>
+      <span id="biomeSummary">warm · wet · mineral-rich</span>
+    </div>
+    <div class="world-tag right">
+      <strong id="stageName">MOLECULAR PET</strong>
+      <span id="stageSummary">reactive chemistry</span>
+    </div>
+
+    <div class="world-dpad" aria-label="Movement controls">
+      <i></i><button data-dir="up">▲</button><i></i>
+      <button data-dir="left">◀</button><button data-dir="stop">●</button><button data-dir="right">▶</button>
+      <i></i><button data-dir="down">▼</button><i></i>
+    </div>
+
+    <div id="behaviourBadge" class="behaviour-badge">MANUAL</div>
+    <div id="eventBanner" class="event-banner" hidden></div>
+  </section>
+
+  <section class="panel stats">
+    <div class="stat"><span>ENERGY <b id="energyValue">72</b></span><div class="bar"><i id="energyBar"></i></div></div>
+    <div class="stat"><span>WATER <b id="waterValue">68</b></span><div class="bar"><i id="waterBar"></i></div></div>
+    <div class="stat"><span>HEALTH <b id="healthValue">92</b></span><div class="bar"><i id="healthBar"></i></div></div>
+    <div class="stat"><span>COMPLEXITY <b id="complexityValue">4</b></span><div class="bar"><i id="complexityBar"></i></div></div>
+  </section>
+
+  <section class="panel actions">
+    <button id="forageButton" data-action="forage">FORAGE<small>autonomous roaming</small></button>
+    <button data-action="rest">REST<small>repair damage</small></button>
+    <button data-action="metabolize">METABOLIZE<small>convert reserves</small></button>
+    <button data-action="divide">DIVIDE<small>mutate lineage</small></button>
+    <button data-action="migrate">MIGRATE<small>change biome</small></button>
+    <button data-action="adapt">ADAPT<small>environmental response</small></button>
+    <button id="evolveButton" class="primary evolve">EVOLVE</button>
+  </section>
+
+  <section class="panel tab-panel">
+    <nav class="tabs">
+      <button class="tab active" data-tab="inventory">BACKPACK</button>
+      <button class="tab" data-tab="biology">BIOLOGY</button>
+      <button class="tab" data-tab="world">WORLD</button>
+      <button class="tab" data-tab="log">LOG</button>
+    </nav>
+
+    <div id="inventoryTab" class="tab-content active">
+      <p class="section-note">Tap an object to feed it to your pet. Materials bias structure and future evolution.</p>
+      <div id="inventoryGrid" class="inventory-grid"></div>
+    </div>
+
+    <div id="biologyTab" class="tab-content">
+      <div class="data-grid">
+        <div><span>Generation</span><strong id="generationValue">1</strong></div>
+        <div><span>Cells</span><strong id="cellsValue">0</strong></div>
+        <div><span>Genome</span><strong id="genomeValue">0 bp</strong></div>
+        <div><span>Scale</span><strong id="scaleValue">0.8 nm</strong></div>
+      </div>
+      <h2>Active biological effects</h2>
+      <div id="effectList" class="cards"></div>
+      <h2>Retained traits</h2>
+      <div id="traitList" class="chips"></div>
+      <h2>Morphology</h2>
+      <div id="morphologyList" class="cards"></div>
+    </div>
+
+    <div id="worldTab" class="tab-content">
+      <h2>Selection pressures</h2>
+      <div id="pressureList"></div>
+      <h2>Current survival fit</h2>
+      <div id="fitCard" class="card"></div>
+      <h2>Known biomes</h2>
+      <div id="biomeList" class="cards"></div>
+    </div>
+
+    <div id="logTab" class="tab-content"><div id="logList" class="log-list"></div></div>
+  </section>
+
+  <footer>
+    <button id="saveButton">SAVE</button>
+    <button id="resetButton">RESET</button>
+    <span id="saveStatus">Autosave enabled</span>
+  </footer>
+</main>
+
+<script src="game.js?v=4" defer></script>
+</body>
+</html>
