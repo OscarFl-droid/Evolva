@@ -4,7 +4,7 @@ const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v7-4",LEGACY_SAVE_KEY="evolva-save-v7-3",OLDER_SAVE_KEYS=["evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
+const SAVE_KEY="evolva-save-v7-5",LEGACY_SAVE_KEY="evolva-save-v7-4",OLDER_SAVE_KEYS=["evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -49,6 +49,24 @@ const DIET_RECIPES=[
  {id:"toxic_compartment",name:"Chemical Arsenal",needs:{spore:1,mineral:1,amino:1},axes:{innovation:7,resilience:5},desc:"Mixed chemical and structural intake favours detoxification and toxin storage."},
  {id:"plastic_generalist",name:"Plastic Generalist",needs:{sugar:1,lipid:1,amino:1,pigment:1},axes:{adaptability:10,innovation:3},desc:"A varied diet preserves developmental flexibility rather than one narrow specialisation."}
 ];
+
+const MODULES=[
+ {id:"flagellate",name:"Flagellate Symbiont",icon:"≋",color:"#7de0ff",axis:"mobility",effect:"speed",desc:"A retained motile cell assists propulsion."},
+ {id:"phototroph",name:"Phototrophic Symbiont",icon:"☼",color:"#ffd66a",axis:"innovation",effect:"light",desc:"A living internal phototroph produces energy in bright niches."},
+ {id:"mineralizer",name:"Mineralising Symbiont",icon:"⬡",color:"#f18b66",axis:"resilience",effect:"armour",desc:"Deposits protective mineral plates around its host."},
+ {id:"detoxer",name:"Detoxifying Symbiont",icon:"♢",color:"#91ff9c",axis:"resilience",effect:"detox",desc:"Consumes damaging reactive chemicals."},
+ {id:"signaller",name:"Signalling Symbiont",icon:"⌁",color:"#dba0ff",axis:"communication",effect:"signal",desc:"Amplifies chemical communication and recognition."},
+ {id:"electrogen",name:"Electrogenic Symbiont",icon:"ϟ",color:"#8deaff",axis:"cognition",effect:"pulse",desc:"Stores charge for detection and defensive pulses."}
+];
+const EFFECT_TYPES={
+ mucus:{name:"ADHESIVE MUCUS",color:"#8cffc4",icon:"≈"},
+ toxin:{name:"TOXIN CLOUD",color:"#dba0ff",icon:"†"},
+ pulse:{name:"ELECTRIC PULSE",color:"#7de0ff",icon:"ϟ"},
+ nutrient:{name:"NUTRIENT PLUME",color:"#ffd66a",icon:"✚"},
+ alarm:{name:"ALARM SIGNAL",color:"#ff7777",icon:"!"}
+};
+function moduleById(id){return MODULES.find(m=>m.id===id)}
+function randomModule(){return choice(MODULES)}
 const ATLAS=[
 {id:"selective membrane",name:"Selective Membrane",axis:"adaptability",tier:1,icon:"◌",req:[],min:{adaptability:1},desc:"Controls passive exchange and reduces water loss.",effect:"Water use −18%"},
 {id:"contractile cortex",name:"Contractile Cortex",axis:"power",tier:1,icon:"◍",req:[],min:{power:1},desc:"Organised force generation beneath the membrane.",effect:"Force +15%"},
@@ -247,8 +265,8 @@ function fresh(){
  genes:[],pendingEpochs:0,completedEpochs:0,epochFeed:{},epochForecast:[],
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
  atlasView:{x:430,y:360,zoom:1},
- dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,lastTileKey:"",
- resources:[],organisms:[],logs:[],lastInteraction:0
+ dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,interactionTarget:null,lastTileKey:"",
+ symbionts:[],effects:[],niches:[],particles:[],restAnchor:null,resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -276,15 +294,17 @@ function derivedAxis(axis){
  for(const id of state.genes){const node=ATLAS.find(n=>n.id===id);if(node?.axis===axis)v+=node.tier*.35}
  return Math.round(v*10)/10;
 }
+function moduleCount(effect){return state.symbionts.filter(id=>moduleById(id)?.effect===effect).length}
 function phenotype(){
+ const flag=moduleCount("speed"),armour=moduleCount("armour"),detox=moduleCount("detox"),signal=moduleCount("signal");
  return{
- speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex")?.92:1),
+ speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex")?.92:1)*(1+flag*.09),
  force:(1+(derivedAxis("power")-1)*.08)*(gene("contractile cortex")?1.15:1)*(gene("mineral scaffold")?1.3:1),
- defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1),
+ defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1)*(1+armour*.12),
  waterUse:(gene("selective membrane")?.82:1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025)),
  detection:130*(1+(derivedAxis("cognition")-1)*.08)*(gene("chemical sensing")?1.25:1)*(gene("electroreception")?1.55:1),
  foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1),
- interactionRange:90*(gene("surface exchange")?1.2:1)*(1+(derivedAxis("communication")-1)*.04),
+ interactionRange:90*(gene("surface exchange")?1.2:1)*(1+(derivedAxis("communication")-1)*.04)*(1+signal*.1),
  plasticity:1+(derivedAxis("adaptability")-1)*.06
  };
 }
@@ -329,7 +349,7 @@ function weightedFood(){
 function spawnFood(n=1){for(let i=0;i<n;i++)state.resources.push({x:rand(30,WORLD-30),y:rand(30,WORLD-30),type:weightedFood(),phase:rand(0,6.28)})}
 function makeOrganism(){
  const mass=rand(.35,Math.max(2.2,state.mass*1.8));
- return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"])};
+ return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"]),module:Math.random()<.72?randomModule().id:null,stuck:0,stunned:0,flash:0};
 }
 function populate(){state.organisms=[];for(let i=0;i<18;i++)state.organisms.push(makeOrganism())}
 function nearestResource(x,y){let best=null,d=Infinity;for(const r of state.resources){const q=Math.hypot(r.x-x,r.y-y);if(q<d){d=q;best=r}}return best?{o:best,d}:null}
@@ -349,6 +369,7 @@ function chooseIntent(o){
  o.state="wander";o.target=null;o.stateTimer=rand(180,420);
 }
 function updateOrganism(o){
+ if(o.flash>0)o.flash--;if(o.stunned>0){o.stunned--;o.vx*=.7;o.vy*=.7;return}if(o.stuck>0)o.stuck--;
  o.stateTimer--;o.phase+=.025;if(state.tick%120===0){o.hunger=clamp(o.hunger+1.5);o.energy=clamp(o.energy-.7)}
  if(o.stateTimer<=0)chooseIntent(o);
  let tx=0,ty=0,pdx=state.x-o.x,pdy=state.y-o.y,pd=Math.hypot(pdx,pdy)||1;
@@ -358,7 +379,7 @@ function updateOrganism(o){
  else if(o.state==="rest"){tx=0;ty=0;o.energy=clamp(o.energy+.025);o.health=clamp(o.health+.012)}
  else if(o.state==="forage"){const r=state.resources[o.target];if(r){const d=Math.hypot(r.x-o.x,r.y-o.y)||1;tx=(r.x-o.x)/d;ty=(r.y-o.y)/d}else o.stateTimer=0}
  else{const q=state.organisms.find(x=>x.id===o.target);if(q){const d=Math.hypot(q.x-o.x,q.y-o.y)||1,s=o.state==="fleeOther"?-1:1;tx=(q.x-o.x)/d*s;ty=(q.y-o.y)/d*s}else o.stateTimer=0}
- const speed=Math.pow(o.mass,-.14);o.vx=(o.vx+tx*.05*speed)*.92;o.vy=(o.vy+ty*.05*speed)*.92;o.x=clamp(o.x+o.vx,20,WORLD-20);o.y=clamp(o.y+o.vy,20,WORLD-20);
+ const speed=Math.pow(o.mass,-.14)*(o.stuck>0?.28:1);o.vx=(o.vx+tx*.05*speed)*.92;o.vy=(o.vy+ty*.05*speed)*.92;o.x=clamp(o.x+o.vx,20,WORLD-20);o.y=clamp(o.y+o.vy,20,WORLD-20);
  if(o.state==="forage"){
    const r=state.resources[o.target];
    if(r&&Math.hypot(r.x-o.x,r.y-o.y)<radius(o.mass)+8){
@@ -414,17 +435,52 @@ function spendAdapt(axis){
 function movementTarget(x,y){state.target={x,y};state.mode="move";renderMode()}
 function forageToggle(){state.mode=state.mode==="forage"?"observe":"forage";state.target=null;renderAll()}
 function restToggle(){state.mode=state.mode==="rest"?"observe":"rest";state.target=null;renderAll();if(state.mode==="rest")addPressure("resilience",.2)}
+
+function burst(x,y,color,count=12,speed=2.2){
+ for(let i=0;i<count;i++){const a=rand(0,Math.PI*2),v=rand(.4,speed);state.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(25,60),color,size:rand(1.5,4)})}
+}
+function addEffect(type,x,y,radius=95,power=1,life=600,owner="player"){
+ state.effects.push({id:Math.random().toString(36).slice(2),type,x,y,radius,power,life,owner,phase:rand(0,6.28)});
+ burst(x,y,EFFECT_TYPES[type].color,14,2.6)
+}
+function nearestNiche(x,y,range=90){return state.niches.find(n=>n.biome===state.biome&&Math.hypot(n.x-x,n.y-y)<range)}
+function conditionNiche(){
+ let n=nearestNiche(state.x,state.y,75);
+ if(!n){n={id:Math.random().toString(36).slice(2),x:state.x,y:state.y,biome:state.biome,strength:0,rests:0,type:moduleCount("light")?"PHOTIC MAT":moduleCount("detox")?"DETOX BED":"MUCUS NEST"};state.niches.push(n);log(`A new ${n.type.toLowerCase()} began forming.`)}
+ n.strength=clamp(n.strength+.65,0,100);n.rests++;
+ if(n.rests%8===0){addXP(4,"The lineage conditioned a persistent local niche");burst(n.x,n.y,"#8cff9c",9,1.1)}
+}
+function nicheBonus(){
+ const n=nearestNiche(state.x,state.y,110);return n?1+n.strength/125:1
+}
+function removeOrganism(o){state.organisms=state.organisms.filter(q=>q!==o)}
+function integrateModule(o,forced=false){
+ const id=o.module||randomModule().id,m=moduleById(id);
+ if(state.symbionts.length>=6){state.energy=clamp(state.energy+12);log(`${m.name} was digested because all integration sites were occupied.`);return false}
+ if(!forced&&state.symbionts.includes(id)&&Math.random()<.55){state.energy=clamp(state.energy+10);return false}
+ state.symbionts.push(id);state.mass*=1.08;addPressure(m.axis,3);addXP(18,`${m.name} became a visible living module`);
+ burst(state.x,state.y,m.color,24,3.2);toast(`${m.name.toUpperCase()} INTEGRATED`);return true
+}
+function loseModule(toOrganism){
+ if(!state.symbionts.length)return false;
+ const i=Math.floor(Math.random()*state.symbionts.length),id=state.symbionts.splice(i,1)[0],m=moduleById(id);
+ if(toOrganism&&!toOrganism.module)toOrganism.module=id;
+ burst(state.x,state.y,m.color,20,2.8);log(`${m.name} was captured by another organism.`);toast("LIVING MODULE LOST");return true
+}
+function nearbyOrganism(){
+ return [...state.organisms].sort((a,b)=>Math.hypot(a.x-state.x,a.y-state.y)-Math.hypot(b.x-state.x,b.y-state.y))[0]
+}
 function d20(){return Math.floor(Math.random()*20)+1}
 function encounterModifier(axis){return Math.floor((derivedAxis(axis)-1)/2)}
 function relationScore(o){
  return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
        -(o.aggression*7+o.hunger/18)+(gene("quorum signal")?3:0)+(gene("cooperative exchange")?4:0);
 }
-function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true){
+function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true,icon="⌁"){
  state.encounter={title,odds,playerRoll,otherRoll,text};
  $("encounterTitle").textContent=title;$("encounterOdds").textContent=odds;
  $("encounterRolls").innerHTML=`<div class="roll-card ${playerGood?"good":"bad"}"><span>YOUR RESPONSE</span><b>${playerRoll}</b></div><div class="roll-card ${playerGood?"bad":"good"}"><span>OTHER ORGANISM</span><b>${otherRoll}</b></div>`;
- $("encounterText").textContent=text;$("encounterPanel").hidden=false;
+ $("encounterText").textContent=text;$("encounterOutcomeIcon").textContent=icon;$("encounterPanel").hidden=false;
 }
 function closeEncounter(){$("encounterPanel").hidden=true;state.encounter=null;save()}
 function fleeFrom(o){
@@ -433,54 +489,79 @@ function fleeFrom(o){
  state.mode="move";addPressure("mobility",1.5);
 }
 function interact(){
- if(state.encounter)return;
- const near=[...state.organisms].sort((a,b)=>Math.hypot(a.x-state.x,a.y-state.y)-Math.hypot(b.x-state.x,b.y-state.y))[0];
- const range=phenotype().interactionRange;
+ if(state.encounter||state.interactionTarget)return;
+ const near=nearbyOrganism(),range=phenotype().interactionRange;
  if(!near||Math.hypot(near.x-state.x,near.y-state.y)>range){toast("NO ORGANISM IN RANGE");return}
- const hostileIntent=(gene("predatory strike")||gene("toxin organelle"))&&near.mass<state.mass*1.2&&state.energy<82;
- const pRoll=d20()+(hostileIntent?encounterModifier("power"):encounterModifier("communication"))+(gene("chemical sensing")?2:0);
- const oRoll=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2);
- if(hostileIntent){
-   if(pRoll>=oRoll){
-     const hit=Math.round(8*phenotype().force*(gene("toxin organelle")?1.35:1));near.health-=hit;state.energy=clamp(state.energy-4);
-     addPressure("power",1.8);addPressure("innovation",gene("toxin organelle")?1:.15);
-     if(near.health<=0){state.organisms=state.organisms.filter(o=>o!==near);state.energy=clamp(state.energy+16);addXP(14,"Predation changed the lineage");showEncounter("PREDATORY SUCCESS","advantage",pRoll,oRoll,`Your attack overwhelmed the smaller organism for ${hit} damage. It was consumed, restoring energy.`)}
-     else{near.state="fleePlayer";near.stateTimer=300;showEncounter("SUCCESSFUL STRIKE","advantage",pRoll,oRoll,`Your attack inflicted ${hit} damage. The organism released an alarm chemical and fled.`)}
-   }else{
-     const harm=Math.round((5+near.mass/state.mass*4)/phenotype().defense);state.health=clamp(state.health-harm);addPressure("resilience",1.8);fleeFrom(near);
-     showEncounter("COUNTERATTACK","danger",pRoll,oRoll,`The organism anticipated your attack and released a damaging chemical response. You lost ${harm} health and fled.`,false)
-   }
+ state.interactionTarget=near.id;
+ const mod=moduleById(near.module);
+ $("interactionTargetName").textContent=mod?`${mod.icon} ${mod.name.toUpperCase()}`:"UNSPECIALISED ORGANISM";
+ $("interactionTargetInfo").textContent=`mass ${near.mass.toFixed(1)} · health ${Math.round(near.health)} · ${near.aggression>.5?"reactive":"cautious"}`;
+ $("interactionMenu").hidden=false;state.mode="observe"
+}
+function cancelInteraction(){$("interactionMenu").hidden=true;state.interactionTarget=null}
+function resolveIntent(intent){
+ const near=state.organisms.find(o=>o.id===state.interactionTarget);cancelInteraction();
+ if(!near){toast("TARGET MOVED AWAY");return}
+ const size=state.mass/(near.mass||1),chem=encounterModifier("communication")+encounterModifier("cognition")+(gene("chemical sensing")?2:0)+moduleCount("signal");
+ const force=encounterModifier("power")+Math.floor(size*2)+(gene("pseudopods")?2:0);
+ const p=d20()+(intent==="signal"||intent==="merge"?chem:force),o=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2);
+ let title="",text="",icon="⌁",good=true;
+ if(intent==="signal"){
+   if(p>=o+3){const gain=6+moduleCount("signal")*2;state.energy=clamp(state.energy+gain);addPressure("communication",2);near.state="inspectPlayer";near.stateTimer=260;title="RECIPROCAL SIGNAL";text=`Molecular patterns matched. Metabolites and hazard information were exchanged, restoring ${gain} energy.`;icon="⇄";addEffect("nutrient",near.x,near.y,70,1,300,"shared")}
+   else if(p>=o-2){title="UNCERTAIN RECOGNITION";text="Both organisms circled and sampled each other's chemistry, but neither committed to exchange.";icon="?"
+   }else{const harm=Math.round((4+near.aggression*8)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`The signal triggered a defensive secretion. You lost ${harm} health and retreated.`;icon="†";good=false;addEffect("toxin",near.x,near.y,85,near.aggression,360,"other")}
+ }else if(intent==="merge"){
+   const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
+   if(p+compatibility>=o+7){integrateModule(near,true);removeOrganism(near);title="STABLE ENDOSYMBIOSIS";text="Membranes remained fused. The organism persists as a living functional module and is now visible in your body.";icon="◉"}
+   else if(p+compatibility>=o+1){state.health=clamp(state.health-3);state.energy=clamp(state.energy+5);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text="The membranes exchanged cytoplasm and genes but separated before stable integration. Both organisms were altered.";icon="∞"}
+   else{const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules and inflicted ${harm} damage.`:`Fusion destabilised your membrane, causing ${harm} damage and forced retreat.`;icon="◐";good=false}
+ }else if(intent==="engulf"){
+   if(p>=o){const killed=p>=o+6||near.health<35;near.health-=Math.round(12*phenotype().force);addPressure("power",2.2);
+     if(killed||near.health<=0){const integrated=near.module&&Math.random()<clamp(.22+derivedAxis("innovation")*.035,0,0.72)?integrateModule(near):false;removeOrganism(near);state.energy=clamp(state.energy+(integrated?8:18));title=integrated?"LIVING ABSORPTION":"ENGULFMENT";text=integrated?"The prey survived internalisation and became a functional body module.":"The organism was enclosed, dismantled and metabolised for energy.";icon=integrated?"◉":"∨"}
+     else{near.state="fleePlayer";near.stateTimer=360;title="PARTIAL ENGULFMENT";text="The target tore free, injured and chemically marked. It is now fleeing.";icon="◔";addEffect("alarm",near.x,near.y,110,1,320,"other")}
+   }else{const harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The target resisted, damaged your membrane for ${harm} health and attempted to absorb your exposed structures.`;icon="◑";good=false}
  }else{
-   const socialTarget=Math.round(relationScore(near));
-   if(pRoll+socialTarget>=oRoll+7){
-     const gain=gene("cooperative exchange")?12:5;state.energy=clamp(state.energy+gain);addPressure("communication",2.4);addPressure("cognition",.8);addXP(10,"A cooperative chemical exchange shaped the lineage");
-     near.state="inspectPlayer";near.stateTimer=260;showEncounter("COOPERATIVE EXCHANGE","favourable",pRoll+socialTarget,oRoll,`Signals were interpreted successfully. Metabolites were exchanged, restoring ${gain} energy and strengthening communication pressure.`)
-   }else if(pRoll+socialTarget>=oRoll){
-     addPressure("communication",1);addPressure("cognition",1);addXP(5,"A neutral encounter was interpreted");
-     near.state="wander";near.stateTimer=220;showEncounter("CAUTIOUS CONTACT","balanced",pRoll+socialTarget,oRoll,"Both organisms exchanged information but neither committed resources or attacked.")
-   }else{
-     const chemical=near.aggression>.45||near.hunger>60;
-     if(chemical){
-       const harm=Math.max(2,Math.round((4+near.aggression*8)/phenotype().defense));state.health=clamp(state.health-harm);addPressure("resilience",1.5);addPressure("cognition",.6);fleeFrom(near);
-       showEncounter("CHEMICAL REJECTION","danger",pRoll+socialTarget,oRoll,`Your signal was misread or rejected. A defensive secretion caused ${harm} damage and your organism fled.`,false)
-     }else{
-       near.state="fleePlayer";near.stateTimer=260;addPressure("communication",.7);
-       showEncounter("CONTACT FAILED","uncertain",pRoll+socialTarget,oRoll,"The other organism interpreted the contact as risky and escaped before exchange could occur.",false)
-     }
-   }
+   const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
+   addEffect(type,state.x,state.y,type==="pulse"?135:105,1+derivedAxis("resilience")*.06,type==="pulse"?150:620,"player");
+   addPressure(type==="mucus"?"resilience":"innovation",1.7);title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon
  }
- renderAll();save()
+ showEncounter(title,good?"favourable":"danger",p,o,text,good,icon);renderAll();save()
 }
 function forageAI(){
  const threat=state.organisms.find(o=>o.mass>state.mass*1.2&&Math.hypot(o.x-state.x,o.y-state.y)<220);
  if(threat){const d=Math.hypot(state.x-threat.x,state.y-threat.y)||1;movementTarget(state.x+(state.x-threat.x)/d*180,state.y+(state.y-threat.y)/d*180);state.mode="forage";addPressure("mobility",.15);return}
  const r=nearestResource(state.x,state.y);if(r){movementTarget(r.o.x,r.o.y);state.mode="forage";addPressure("cognition",.05)}
 }
+
+function updateEffects(){
+ for(const e of state.effects){
+   e.life--;e.phase+=.08;
+   const affected=state.organisms.filter(o=>Math.hypot(o.x-e.x,o.y-e.y)<e.radius);
+   for(const o of affected){
+     if(e.owner==="player"){
+       if(e.type==="mucus"){o.stuck=Math.max(o.stuck,16);o.state="fleePlayer"}
+       if(e.type==="pulse"){o.stunned=Math.max(o.stunned,18);o.flash=8}
+       if(e.type==="toxin"&&state.tick%25===0){o.health-=2.5*e.power;o.flash=5}
+       if(e.type==="alarm"){o.state="fleeOther";o.stateTimer=160}
+     }
+   }
+   if(e.owner==="other"&&Math.hypot(state.x-e.x,state.y-e.y)<e.radius&&state.tick%30===0){
+     if(e.type==="toxin")damage(1.3*e.power);
+     if(e.type==="mucus"){state.vx*=.65;state.vy*=.65;addPressure("mobility",.15)}
+   }
+ }
+ state.effects=state.effects.filter(e=>e.life>0);
+ state.organisms=state.organisms.filter(o=>o.health>0);
+}
+function updateParticles(){
+ for(const q of state.particles){q.x+=q.vx;q.y+=q.vy;q.vx*=.96;q.vy*=.96;q.life--}
+ state.particles=state.particles.filter(q=>q.life>0)
+}
 function ecologyTick(){
  const b=BIOMES[state.biome],p=phenotype(),tile=localTile(),beforeWater=state.water;
  const roughCost=tile.rough?1.22:1;
  if(state.mode==="rest"){
-   const shelter=tile.shelter?1.5:1;
+   const shelter=(tile.shelter?1.5:1)*nicheBonus();
    state.energy=clamp(state.energy+3.8*shelter);state.health=clamp(state.health+(gene("repair cycle")?4.8:2.8)*shelter);state.water=clamp(state.water-.1*p.waterUse)
  }else{
    state.energy=clamp(state.energy-(1.6+Math.log2(state.mass+1)*.22)*roughCost);
@@ -496,7 +577,7 @@ function ecologyTick(){
    if(gained>0)toast(`DRINKING +${gained} WATER`);
  }
  if(tile.rough)addPressure("mobility",.2);
- if(gene("photosymbiosis")&&b.light>55)state.energy=clamp(state.energy+2.4);
+ if((gene("photosymbiosis")||moduleCount("light"))&&b.light>55)state.energy=clamp(state.energy+2.4+moduleCount("light")*1.2);
  if(gene("thermal engine")&&(b.temp>45||b.temp<0))state.energy=clamp(state.energy+2.8);
  const lowFit=Math.max(0,35-fit());if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
  if(state.energy<5||state.water<5)damage(3.5);
@@ -587,7 +668,7 @@ function completeEpoch(id){
 }
 function migrate(){
  if(state.energy<10){toast("NOT ENOUGH ENERGY");return}
- state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;state.resources=[];spawnFood(58);populate();
+ state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;state.effects=[];state.resources=[];spawnFood(58);populate();
  Object.entries(BIOMES[state.biome].pressure).forEach(([a,v])=>addPressure(a,v*2));
  addXP(15,`Migration into ${BIOMES[state.biome].name}`);renderAll();save()
 }
@@ -597,13 +678,13 @@ function chooseOrigin(id){
 }
 
 function update(){
- if(simulationPaused()||state.encounter)return;
+ if(simulationPaused()||state.encounter||state.interactionTarget)return;
  state.tick++;
  if(state.tick%20===0)renderTile();
  if(state.mode==="forage"&&state.tick%180===0)forageAI();
  if(state.target&&state.mode!=="rest"){const dx=state.target.x-state.x,dy=state.target.y-state.y,d=Math.hypot(dx,dy)||1,sp=1.45*phenotype().speed;if(d<8){state.target=null;if(state.mode==="move")state.mode="observe"}else{state.vx+=(dx/d)*.09*sp;state.vy+=(dy/d)*.09*sp;addPressure("mobility",.001)}}
  state.vx*=.9;state.vy*=.9;if(state.mode!=="rest"){state.x=clamp(state.x+state.vx,20,WORLD-20);state.y=clamp(state.y+state.vy,20,WORLD-20)}
- collect();state.organisms.forEach(updateOrganism);
+ collect();updateEffects();updateParticles();state.organisms.forEach(updateOrganism);if(state.mode==="rest"&&state.tick%45===0)conditionNiche();
  if(state.resources.length<50&&state.tick%60===0)spawnFood(3);
  if(state.organisms.length<18&&state.tick%180===0)state.organisms.push(makeOrganism());
  if(state.tick%300===0){ecologyTick();renderAll();save()}
@@ -612,32 +693,48 @@ function update(){
 function sx(x){return canvas.width/2+(x-state.x)*cameraScale()}
 function sy(y){return canvas.height/2+(y-state.y)*cameraScale()}
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))}
+function circle(x,y,r,fill,stroke=null,width=1){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
+function worldLabel(x,y,text,color="#e8ffda"){ctx.font="bold 7px monospace";ctx.textAlign="center";ctx.fillStyle="rgba(3,9,6,.72)";ctx.fillRect(x-ctx.measureText(text).width/2-3,y-8,ctx.measureText(text).width+6,11);ctx.fillStyle=color;ctx.fillText(text,x,y)}
 function drawWorld(){
  const b=BIOMES[state.biome],z=cameraScale(),tile=95,halfW=canvas.width/(2*z),halfH=canvas.height/(2*z);
- px(0,0,canvas.width,canvas.height,b.sky);
+ const grad=ctx.createLinearGradient(0,0,0,canvas.height);grad.addColorStop(0,b.sky);grad.addColorStop(1,b.ground);ctx.fillStyle=grad;ctx.fillRect(0,0,canvas.width,canvas.height);
  for(let gy=Math.floor((state.y-halfH)/tile)-1;gy<=Math.ceil((state.y+halfH)/tile)+1;gy++)for(let gx=Math.floor((state.x-halfW)/tile)-1;gx<=Math.ceil((state.x+halfW)/tile)+1;gx++){
-  const wx=gx*tile,wy=gy*tile,n=terrainType(gx,gy),x=sx(wx),y=sy(wy),size=tile*z+1;px(x,y,size,size,n<2?b.water:b.ground);
-  if(n===4)px(x+size*.2,y+size*.6,Math.max(2,size*.12),Math.max(2,size*.08),"rgba(255,255,255,.16)");
-  if(n===7)px(x+size*.7,y+size*.25,Math.max(2,size*.08),Math.max(2,size*.18),"rgba(0,0,0,.18)")
+  const wx=gx*tile,wy=gy*tile,n=terrainType(gx,gy),x=sx(wx),y=sy(wy),size=tile*z+1;
+  ctx.fillStyle=n<2?b.water:b.ground;ctx.fillRect(x,y,size,size);
+  if(n<2){ctx.strokeStyle="rgba(255,255,255,.14)";ctx.beginPath();ctx.moveTo(x+size*.08,y+size*.3);ctx.quadraticCurveTo(x+size*.45,y+size*.2,x+size*.82,y+size*.34);ctx.stroke()}
+  if(n===4){circle(x+size*.3,y+size*.68,Math.max(2,size*.09),"rgba(255,255,255,.16)");circle(x+size*.62,y+size*.58,Math.max(2,size*.06),"rgba(255,255,255,.12)")}
+  if(n===7){ctx.fillStyle="rgba(0,0,0,.18)";for(let i=0;i<3;i++)ctx.fillRect(x+size*(.2+i*.22),y+size*(.25+(i%2)*.35),Math.max(2,size*.08),Math.max(2,size*.16))}
  }
+ drawNiches();drawEffects()
 }
+function drawNiches(){for(const n of state.niches){if(n.biome!==state.biome||!visible(n.x,n.y,140))continue;const x=sx(n.x),y=sy(n.y),r=(24+n.strength*.42)*cameraScale(),alpha=.12+n.strength/500;ctx.save();ctx.globalAlpha=alpha;circle(x,y,r,n.type==="PHOTIC MAT"?"#ffd66a":"#8cff9c");ctx.globalAlpha=.45;ctx.strokeStyle=n.type==="DETOX BED"?"#91ff9c":n.type==="PHOTIC MAT"?"#ffd66a":"#8cffc4";ctx.setLineDash([4,5]);ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.restore();if(n.strength>28)worldLabel(x,y-r-4,n.type,n.type==="PHOTIC MAT"?"#ffd66a":"#8cff9c")}}
+function drawEffects(){for(const e of state.effects){if(!visible(e.x,e.y,e.radius+30))continue;const x=sx(e.x),y=sy(e.y),r=e.radius*cameraScale(),d=EFFECT_TYPES[e.type];ctx.save();ctx.globalAlpha=.13+.06*Math.sin(e.phase);circle(x,y,r,d.color);ctx.globalAlpha=.8;ctx.strokeStyle=d.color;ctx.lineWidth=2;ctx.setLineDash(e.type==="pulse"?[2,6]:e.type==="mucus"?[7,3]:[3,5]);ctx.beginPath();ctx.arc(x,y,r*(.82+.08*Math.sin(e.phase)),0,Math.PI*2);ctx.stroke();ctx.restore();worldLabel(x,y-r-5,`${d.icon} ${d.name}`,d.color)}}
 function visible(x,y,p=40){const a=sx(x),b=sy(y);return a>-p&&a<canvas.width+p&&b>-p&&b<canvas.height+p}
-function drawFood(){for(const r of state.resources){if(!visible(r.x,r.y))continue;r.phase+=.04;const x=sx(r.x),y=sy(r.y)+Math.sin(r.phase)*2,s=Math.max(3,7*cameraScale());px(x-s/2,y-s/2,s,s,FOOD[r.type].color);px(x-s*.2,y-s*.8,s*.4,s*.3,"#fff")}}
-function drawOrganism(o){if(!visible(o.x,o.y,60))return;const x=sx(o.x),y=sy(o.y),r=Math.max(5,radius(o.mass)*cameraScale()*.72);px(x-r,y-r*.62,r*2,r*1.24,o.color);px(x-r*.65,y-r,r*1.3,r*2,o.color);px(x-r*.32,y-r*.3,r*.64,r*.6,"#15382d");px(x+r*.2,y-r*.25,r*.25,r*.25,"#fff")}
+function drawFood(){for(const r of state.resources){if(!visible(r.x,r.y))continue;r.phase+=.04;const x=sx(r.x),y=sy(r.y)+Math.sin(r.phase)*2,s=Math.max(4,7*cameraScale()),f=FOOD[r.type];ctx.save();ctx.shadowBlur=8;ctx.shadowColor=f.color;circle(x,y,s,f.color,"rgba(255,255,255,.65)",1);ctx.shadowBlur=0;ctx.fillStyle="#fff";ctx.fillRect(x-s*.15,y-s*.9,s*.3,s*.35);ctx.restore()}}
+function drawModuleAt(x,y,r,id,index=0,total=1){const m=moduleById(id);if(!m)return;const a=-Math.PI/2+(index/Math.max(1,total))*Math.PI*2,rr=r*1.05,mx=x+Math.cos(a)*rr,my=y+Math.sin(a)*rr;ctx.save();ctx.shadowBlur=7;ctx.shadowColor=m.color;circle(mx,my,Math.max(3,r*.22),m.color,"#e8ffda",1);ctx.shadowBlur=0;ctx.fillStyle="#07120d";ctx.font=`bold ${Math.max(5,r*.18)}px monospace`;ctx.textAlign="center";ctx.fillText(m.icon,mx,my+2);ctx.restore()}
+function drawOrganism(o){
+ if(!visible(o.x,o.y,80))return;const x=sx(o.x),y=sy(o.y),r=Math.max(6,radius(o.mass)*cameraScale()*.72),flash=o.flash>0&&o.flash%2===0;
+ ctx.save();ctx.shadowBlur=o.module?8:3;ctx.shadowColor=o.module?moduleById(o.module).color:o.color;
+ circle(x,y,r,flash?"#fff":o.color,"rgba(232,255,218,.6)",1.3);circle(x-r*.25,y-r*.1,r*.38,"#15382d");circle(x+r*.34,y-r*.25,r*.14,"#fff");
+ if(o.module)drawModuleAt(x,y,r,o.module,0,1);
+ if(o.stuck>0){ctx.strokeStyle="#8cffc4";ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(x,y,r*1.45,0,Math.PI*2);ctx.stroke()}
+ if(o.stunned>0){ctx.fillStyle="#7de0ff";ctx.font="bold 11px monospace";ctx.fillText("ϟ",x+r*.7,y-r*.8)}
+ ctx.restore()
+}
+function drawParticles(){for(const q of state.particles){if(!visible(q.x,q.y))continue;ctx.save();ctx.globalAlpha=clamp(q.life/30,0,1);circle(sx(q.x),sy(q.y),q.size*cameraScale(),q.color);ctx.restore()}}
 function drawPlayer(){
- const x=canvas.width/2,y=canvas.height/2,r=Math.max(10,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c",dark="#14382a",light="#e8ffda";
- px(x-r,y-r*.65,r*2,r*1.3,main);px(x-r*.68,y-r,r*1.36,r*2,main);px(x-r*.42,y-r*.38,r*.84,r*.76,dark);px(x+r*.24,y-r*.3,r*.34,r*.34,light);px(x+r*.4,y-r*.18,r*.1,r*.1,"#06100c");
- if(gene("chemical sensing")){px(x-r*1.3,y-r*.1,r*.5,r*.18,light);px(x-r*1.55,y-r*.05,r*.3,r*.1,light)}
- if(gene("cilia"))for(let i=-3;i<=3;i++)px(x+i*r*.28,y+r*.65+(i%2)*2,r*.08,r*.5,light);
- if(gene("pseudopods")){px(x-r*1.35,y+r*.15,r*.7,r*.2,light);px(x+r*.7,y+r*.28,r*.65,r*.2,light)}
- if(gene("armoured cortex")){px(x-r,y-r*.95,r*2,r*.22,light);px(x-r*1.1,y-r*.7,r*.2,r*1.4,light);px(x+r*.9,y-r*.7,r*.2,r*1.4,light)}
- if(gene("segmented body"))for(let i=-2;i<=2;i++)px(x+i*r*.42-r*.1,y+r*.67,r*.2,r*.38,main);
- if(gene("electroreception")){ctx.strokeStyle="#7de0ff";ctx.beginPath();ctx.arc(x,y,r*1.6,0,Math.PI*2);ctx.stroke()}
- if(gene("photosymbiosis")){px(x-r*.4,y-r*.5,r*.25,r*.25,"#ffd66a");px(x+r*.1,y+r*.2,r*.25,r*.25,"#ffd66a")}
- if(gene("toxin organelle"))px(x+r*.72,y+r*.18,r*.4,r*.28,"#dba0ff");
+ const x=canvas.width/2,y=canvas.height/2,r=Math.max(11,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c",dark="#14382a",light="#e8ffda";
+ ctx.save();ctx.shadowBlur=12;ctx.shadowColor=main;circle(x,y,r,main,light,2);ctx.shadowBlur=0;circle(x-r*.22,y-r*.05,r*.42,dark);circle(x+r*.35,y-r*.28,r*.16,light);circle(x+r*.38,y-r*.28,r*.06,"#06100c");
+ if(gene("chemical sensing")){ctx.strokeStyle=light;ctx.beginPath();ctx.moveTo(x-r*.7,y);ctx.quadraticCurveTo(x-r*1.25,y-r*.25,x-r*1.55,y-r*.05);ctx.stroke()}
+ if(gene("cilia")){ctx.strokeStyle=light;for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(x+i*r*.22,y+r*.78);ctx.lineTo(x+i*r*.26,y+r*1.15+(i%2)*2);ctx.stroke()}}
+ if(gene("pseudopods")){ctx.fillStyle=light;ctx.fillRect(x-r*1.35,y+r*.1,r*.65,r*.18);ctx.fillRect(x+r*.7,y+r*.28,r*.62,r*.18)}
+ if(gene("armoured cortex")){ctx.strokeStyle="#f5ead5";ctx.lineWidth=3;ctx.setLineDash([r*.35,r*.12]);ctx.beginPath();ctx.arc(x,y,r*.9,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+ state.symbionts.forEach((id,i)=>drawModuleAt(x,y,r,id,i,state.symbionts.length));
+ if(moduleCount("pulse")||gene("electroreception")){ctx.strokeStyle="#7de0ff";ctx.globalAlpha=.45+.2*Math.sin(state.tick*.08);ctx.beginPath();ctx.arc(x,y,r*1.45,0,Math.PI*2);ctx.stroke()}
+ ctx.restore();
  if(state.target){const tx=sx(state.target.x),ty=sy(state.target.y);ctx.strokeStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(tx,ty,9,0,Math.PI*2);ctx.stroke()}
 }
-function draw(){drawWorld();drawFood();state.organisms.forEach(drawOrganism);drawPlayer()}
+function draw(){drawWorld();drawFood();state.organisms.forEach(drawOrganism);drawParticles();drawPlayer()}
 
 function bar(id,v,c){const e=$(id);e.style.width=clamp(v)+"%";e.style.background=v<24?"var(--red)":c}
 function renderMode(){$("stateLabel").textContent=isWaterAt(state.x,state.y)?"HYDRATING":state.mode.toUpperCase();$("forageBtn").classList.toggle("active",state.mode==="forage");$("restBtn").classList.toggle("active",state.mode==="rest")}
@@ -675,12 +772,15 @@ function renderEcology(){
   ["Water exchange",tile.water?`Approximately +${hydration} hydration each physiology cycle before normal water use`:"No environmental uptake on this tile"],
   ["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<300).length} detected locally`],
   ["Niche fit",`${Math.round(fit())}% compatibility`]
- ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("")
+ ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
+ $("symbiontCards").innerHTML=state.symbionts.length?state.symbionts.map((id,i)=>{const m=moduleById(id);return`<div class="module-card"><i style="color:${m.color}">${m.icon}</i><b>${m.name}</b>${m.desc}<br>Visible module ${i+1} · biases ${AXES[m.axis].name}</div>`}).join(""):`<div class="card"><b>No integrated organisms</b>Successful merger or living engulfment can add visible functional modules.</div>`;
+ const here=state.niches.filter(n=>n.biome===state.biome);
+ $("nicheCards").innerHTML=here.length?here.sort((a,b)=>b.strength-a.strength).slice(0,6).map(n=>`<div class="niche-card"><b>${n.type}</b>${Math.round(n.strength)}% conditioned · ${n.rests} rest deposits<div class="niche-meter"><em style="width:${n.strength}%"></em></div></div>`).join(""):`<div class="card"><b>No conditioned niche</b>Rest repeatedly in one location to create a persistent healing environment.</div>`
 }
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
 function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
-function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;box.innerHTML=`<b style="color:${best.color}">ORGANISM</b><br>mass ${best.mass.toFixed(1)}<br>health ${Math.round(best.health)}<br>state ${best.state}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
+function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;const m=moduleById(best.module);box.innerHTML=`<b style="color:${best.color}">${m?m.icon+" "+m.name:"UNSPECIALISED ORGANISM"}</b><br>mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)}<br>${best.aggression>.5?"reactive chemistry":"cautious chemistry"} · ${best.state}${m?"<br>potential living module: "+m.effect:""}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(state.x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(state.y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
 let activePointer=null,longTimer=null,startPoint=null,moved=false;
 function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);movementTarget(p.x,p.y);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y)},560)}
@@ -697,7 +797,7 @@ function bind(){
  $("atlasMinusBtn").onclick=()=>{atlasZoom(.82);drawAtlas()};
  $("atlasPlusBtn").onclick=()=>{atlasZoom(1.22);drawAtlas()};
  canvas.addEventListener("pointerdown",pointerStart,{passive:false});canvas.addEventListener("pointermove",pointerMove,{passive:false});canvas.addEventListener("pointerup",pointerEnd,{passive:false});canvas.addEventListener("pointercancel",pointerEnd,{passive:false});
- $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;$("encounterCloseBtn").onclick=closeEncounter;
+ $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;$("encounterCloseBtn").onclick=closeEncounter;$("interactionCancelBtn").onclick=cancelInteraction;document.querySelectorAll("[data-intent]").forEach(b=>b.onclick=()=>resolveIntent(b.dataset.intent));
  $("forecastBtn").onclick=buildForecast;$("backToFeedBtn").onclick=()=>{$("epochFeedStage").hidden=false;$("epochForecastStage").hidden=true};
  $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active");$("atlasTooltip").hidden=true;atlasDirty=true;if(t.dataset.tab==="lineage")requestAnimationFrame(drawAtlas)})
@@ -711,7 +811,7 @@ function load(){
   state.axes=Object.assign(b.axes,x.axes||{});state.pressures=Object.assign(b.pressures,x.pressures||{});
   state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
   state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
-  state.resources=Array.isArray(x.resources)?x.resources:[];state.organisms=Array.isArray(x.organisms)?x.organisms:[];state.logs=Array.isArray(x.logs)?x.logs:[];
+  state.resources=Array.isArray(x.resources)?x.resources:[];state.organisms=Array.isArray(x.organisms)?x.organisms.map(o=>Object.assign({module:null,stuck:0,stunned:0,flash:0},o)):[];state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];state.effects=Array.isArray(x.effects)?x.effects:[];state.niches=Array.isArray(x.niches)?x.niches:[];state.particles=[];state.interactionTarget=null;state.logs=Array.isArray(x.logs)?x.logs:[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
   state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
   state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};
@@ -727,4 +827,4 @@ function start(newLineage=false){
 let running=false;function loop(now){if(!running)return;update();draw();drawAtlas(now);requestAnimationFrame(loop)}
 window.addEventListener("error",e=>{const x=$("error");x.hidden=false;x.textContent=e.message});
 $("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.4").catch(()=>{});
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.5").catch(()=>{});

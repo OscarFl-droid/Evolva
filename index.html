@@ -6,15 +6,15 @@
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v7.4</title>
-<link rel="manifest" href="manifest.webmanifest?v=7.4">
+<title>EVOLVA v7.5</title>
+<link rel="manifest" href="manifest.webmanifest?v=7.5">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=7.4">
+<link rel="stylesheet" href="styles.css?v=7.5">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small>v7.4</small></h1>
+    <h1>EVOLVA <small>v7.5</small></h1>
     <p class="tag">LINEAGE ENGINE</p>
     <p>Guide one lineage through ecology, nutrition, behaviour and major evolutionary epochs.</p>
     <button id="continue" class="primary">CONTINUE LINEAGE</button>
@@ -64,7 +64,7 @@
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small>v7.4</small></h1>
+      <h1>EVOLVA <small>v7.5</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -82,12 +82,27 @@
       <b id="tileName">MOIST SUBSTRATE</b>
       <span id="tileEffect">No immediate physiological effect</span>
     </div>
+    <div id="interactionMenu" class="interaction-menu" hidden>
+      <div class="encounter-head">
+        <b id="interactionTargetName">NEARBY ORGANISM</b>
+        <span id="interactionTargetInfo">reading chemistry…</span>
+      </div>
+      <p>Choose an ecological intention. Anatomy, chemistry, condition and chance determine what actually happens.</p>
+      <div class="intent-grid">
+        <button data-intent="signal"><b>⌁ SIGNAL</b><small>cooperate, inspect or be rejected</small></button>
+        <button data-intent="merge"><b>◉ MERGE</b><small>attempt stable endosymbiosis</small></button>
+        <button data-intent="engulf"><b>∨ ENGULF</b><small>absorb biomass or living modules</small></button>
+        <button data-intent="defend"><b>⬢ DEFEND</b><small>release a local protective field</small></button>
+      </div>
+      <button id="interactionCancelBtn">CANCEL</button>
+    </div>
     <div id="encounterPanel" class="encounter-panel" hidden>
       <div class="encounter-head">
         <b id="encounterTitle">CHEMICAL ENCOUNTER</b>
         <span id="encounterOdds">uncertain</span>
       </div>
       <div id="encounterRolls" class="encounter-rolls"></div>
+      <div id="encounterOutcomeIcon" class="encounter-outcome-icon">⌁</div>
       <p id="encounterText"></p>
       <button id="encounterCloseBtn">CONTINUE</button>
     </div>
@@ -180,6 +195,10 @@
 
     <div id="ecologyTab" class="tab-content">
       <div id="ecologyCards" class="cards"></div>
+      <h2>INTEGRATED LIVING MODULES</h2>
+      <div id="symbiontCards" class="cards compact"></div>
+      <h2>CONDITIONED NICHES</h2>
+      <div id="nicheCards" class="cards compact"></div>
       <button id="migrateBtn" class="secondary-action">MIGRATE TO NEXT NICHE</button>
     </div>
 
@@ -192,6 +211,6 @@
   <footer><span id="saveStatus">autosaving</span></footer>
 </main>
 
-<script src="game.js?v=7.4" defer></script>
+<script src="game.js?v=7.5" defer></script>
 </body>
 </html>
