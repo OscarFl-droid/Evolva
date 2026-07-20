@@ -1,5 +1,13 @@
-const CACHE="evolva-v7-5";
-const ASSETS=["./","./index.html","./styles.css?v=7.5","./game.js?v=7.5","./manifest.webmanifest?v=7.5","./icons/icon.svg"];
-self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
-self.addEventListener("activate",e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x))))]))});
-self.addEventListener("fetch",e=>{if(e.request.mode==="navigate"){e.respondWith(fetch(e.request).then(r=>{const q=r.clone();caches.open(CACHE).then(c=>c.put("./index.html",q));return r}).catch(()=>caches.match("./index.html")));return}e.respondWith(fetch(e.request).then(r=>{const q=r.clone();caches.open(CACHE).then(c=>c.put(e.request,q));return r}).catch(()=>caches.match(e.request)))});
+const CACHE="evolva-v7-5-1";
+const VERSION="7.5.1";
+const SHELL=["./index.html","./styles.css?v=7.5.1","./game.js?v=7.5.1","./manifest.webmanifest?v=7.5.1","./icons/icon.svg"];
+self.addEventListener("install",event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)))});
+self.addEventListener("activate",event=>{event.waitUntil((async()=>{for(const key of await caches.keys())if(key!==CACHE)await caches.delete(key);await self.clients.claim()})())});
+self.addEventListener("message",event=>{if(event.data?.type==="SKIP_WAITING")self.skipWaiting()});
+self.addEventListener("fetch",event=>{
+ if(event.request.method!=="GET")return;
+ if(event.request.mode==="navigate"){
+  event.respondWith((async()=>{try{const fresh=await fetch(event.request,{cache:"reload"});if(fresh.ok){const cache=await caches.open(CACHE);await cache.put("./index.html",fresh.clone())}return fresh}catch{return (await caches.match("./index.html"))||Response.error()}})());return
+ }
+ event.respondWith((async()=>{try{const fresh=await fetch(event.request,{cache:"no-store"});if(fresh.ok){const cache=await caches.open(CACHE);await cache.put(event.request,fresh.clone())}return fresh}catch{return (await caches.match(event.request))||Response.error()}})())
+});

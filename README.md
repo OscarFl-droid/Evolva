@@ -1,59 +1,21 @@
-# EVOLVA v7.5 — Living Systems and Visual Overhaul
+# EVOLVA v7.5.1 — Stability Audit
 
-## New encounter intentions
+This is the corrected release of the v7.5 Living Systems build.
 
-Interact now pauses the world and offers four ecological intentions:
+## Critical fixes
 
-- Signal
-- Merge
-- Engulf
-- Defend
+- Central build identity now controls the title, intro screen, HUD and startup build stamp.
+- Service worker uses a new cache and explicitly replaces older app shells.
+- Navigation is network-first with forced revalidation; offline fallback remains available.
+- Existing v7 through v7.5 saves migrate into the new save key.
+- Legacy organisms, resources, effects, niches and modules are validated before rendering.
+- Rest-created niches now grow at a controlled rate and award XP only at one-time milestones.
+- Duplicate symbiont stacking is capped at two copies of a module type.
+- Defensive field outcomes now label field strength and local threat rather than pretending to be a contested organism roll.
+- Runtime errors and rejected promises display the exact build number on the intro panel.
 
-A visible dice resolution still combines chance, anatomy, chemistry, condition, body size and behaviour.
+## Deployment
 
-## Living assimilation
+Delete or replace every file in the GitHub Pages repository, including `sw.js`. After deployment, open the page once in normal Safari, allow it to reload, then reopen the Home Screen app if installed.
 
-Compatible organisms may persist inside the player as one of six visible modules:
-
-- flagellate
-- phototroph
-- mineraliser
-- detoxifier
-- signaller
-- electrogen
-
-Modules visibly orbit or attach to the avatar and provide physiological effects. Failed merger or engulfment can allow another organism to capture one of the player's modules.
-
-## Area effects
-
-Defensive interactions create persistent world fields:
-
-- adhesive mucus slows and traps
-- toxin clouds damage
-- electrical pulses stun
-- nutrient plumes aid exchange
-- alarm fields trigger escape
-
-Every field has a distinct colour, icon, boundary and animation.
-
-## Conditioned niches
-
-Resting repeatedly in the same location builds a persistent niche. Strength increases gradually and improves rest healing and energy recovery. Niche sites remain in the world and are visible on the terrain and Ecology tab.
-
-## Visual overhaul
-
-- circular, outlined organisms instead of indistinct rectangles
-- resource glow and food-specific colour
-- visible integrated modules
-- injury flashing and particle bursts
-- status rings for trapped and stunned organisms
-- labelled area effects
-- labelled persistent niches
-- improved water and terrain texture
-- expanded organism inspection
-
-## Save migration
-
-v7 through v7.4 saves migrate automatically.
-
-Service worker cache: `evolva-v7-5`.
+Service-worker cache: `evolva-v7-5-1`.

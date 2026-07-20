@@ -1,10 +1,11 @@
 "use strict";
+const BUILD_VERSION="7.5.1",BUILD_CACHE="evolva-v7-5-1";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v7-5",LEGACY_SAVE_KEY="evolva-save-v7-4",OLDER_SAVE_KEYS=["evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
+const SAVE_KEY="evolva-save-v7-5-1",LEGACY_SAVE_KEY="evolva-save-v7-5",OLDER_SAVE_KEYS=["evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -266,7 +267,7 @@ function fresh(){
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
  atlasView:{x:430,y:360,zoom:1},
  dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,interactionTarget:null,lastTileKey:"",
- symbionts:[],effects:[],niches:[],particles:[],restAnchor:null,resources:[],organisms:[],logs:[],lastInteraction:0
+ symbionts:[],effects:[],niches:[],particles:[],restAnchor:null,buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -447,8 +448,8 @@ function nearestNiche(x,y,range=90){return state.niches.find(n=>n.biome===state.
 function conditionNiche(){
  let n=nearestNiche(state.x,state.y,75);
  if(!n){n={id:Math.random().toString(36).slice(2),x:state.x,y:state.y,biome:state.biome,strength:0,rests:0,type:moduleCount("light")?"PHOTIC MAT":moduleCount("detox")?"DETOX BED":"MUCUS NEST"};state.niches.push(n);log(`A new ${n.type.toLowerCase()} began forming.`)}
- n.strength=clamp(n.strength+.65,0,100);n.rests++;
- if(n.rests%8===0){addXP(4,"The lineage conditioned a persistent local niche");burst(n.x,n.y,"#8cff9c",9,1.1)}
+ n.strength=clamp(n.strength+.24,0,100);n.rests++;n.milestones=Array.isArray(n.milestones)?n.milestones:[];
+ for(const mark of [10,25,50,75,100])if(n.strength>=mark&&!n.milestones.includes(mark)){n.milestones.push(mark);addXP(mark===100?8:3,`The local niche reached ${mark}% conditioning`);burst(n.x,n.y,"#8cff9c",9+Math.floor(mark/10),1.1)}
 }
 function nicheBonus(){
  const n=nearestNiche(state.x,state.y,110);return n?1+n.strength/125:1
@@ -457,7 +458,7 @@ function removeOrganism(o){state.organisms=state.organisms.filter(q=>q!==o)}
 function integrateModule(o,forced=false){
  const id=o.module||randomModule().id,m=moduleById(id);
  if(state.symbionts.length>=6){state.energy=clamp(state.energy+12);log(`${m.name} was digested because all integration sites were occupied.`);return false}
- if(!forced&&state.symbionts.includes(id)&&Math.random()<.55){state.energy=clamp(state.energy+10);return false}
+ if(state.symbionts.filter(x=>x===id).length>=2){state.energy=clamp(state.energy+10);log(`${m.name} could not establish another stable copy and was metabolised.`);return false}
  state.symbionts.push(id);state.mass*=1.08;addPressure(m.axis,3);addXP(18,`${m.name} became a visible living module`);
  burst(state.x,state.y,m.color,24,3.2);toast(`${m.name.toUpperCase()} INTEGRATED`);return true
 }
@@ -476,10 +477,10 @@ function relationScore(o){
  return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
        -(o.aggression*7+o.hunger/18)+(gene("quorum signal")?3:0)+(gene("cooperative exchange")?4:0);
 }
-function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true,icon="⌁"){
+function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true,icon="⌁",playerLabel="YOUR RESPONSE",otherLabel="OTHER ORGANISM"){
  state.encounter={title,odds,playerRoll,otherRoll,text};
  $("encounterTitle").textContent=title;$("encounterOdds").textContent=odds;
- $("encounterRolls").innerHTML=`<div class="roll-card ${playerGood?"good":"bad"}"><span>YOUR RESPONSE</span><b>${playerRoll}</b></div><div class="roll-card ${playerGood?"bad":"good"}"><span>OTHER ORGANISM</span><b>${otherRoll}</b></div>`;
+ $("encounterRolls").innerHTML=`<div class="roll-card ${playerGood?"good":"bad"}"><span>${playerLabel}</span><b>${playerRoll}</b></div><div class="roll-card ${playerGood?"bad":"good"}"><span>${otherLabel}</span><b>${otherRoll}</b></div>`;
  $("encounterText").textContent=text;$("encounterOutcomeIcon").textContent=icon;$("encounterPanel").hidden=false;
 }
 function closeEncounter(){$("encounterPanel").hidden=true;state.encounter=null;save()}
@@ -523,7 +524,8 @@ function resolveIntent(intent){
  }else{
    const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
    addEffect(type,state.x,state.y,type==="pulse"?135:105,1+derivedAxis("resilience")*.06,type==="pulse"?150:620,"player");
-   addPressure(type==="mucus"?"resilience":"innovation",1.7);title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon
+   addPressure(type==="mucus"?"resilience":"innovation",1.7);title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon;
+   showEncounter(title,"deployed",Math.max(1,Math.round(derivedAxis("resilience"))),Math.max(1,Math.round(near.aggression*10)),text,true,icon,"FIELD STRENGTH","LOCAL THREAT");renderAll();save();return
  }
  showEncounter(title,good?"favourable":"danger",p,o,text,good,icon);renderAll();save()
 }
@@ -684,7 +686,7 @@ function update(){
  if(state.mode==="forage"&&state.tick%180===0)forageAI();
  if(state.target&&state.mode!=="rest"){const dx=state.target.x-state.x,dy=state.target.y-state.y,d=Math.hypot(dx,dy)||1,sp=1.45*phenotype().speed;if(d<8){state.target=null;if(state.mode==="move")state.mode="observe"}else{state.vx+=(dx/d)*.09*sp;state.vy+=(dy/d)*.09*sp;addPressure("mobility",.001)}}
  state.vx*=.9;state.vy*=.9;if(state.mode!=="rest"){state.x=clamp(state.x+state.vx,20,WORLD-20);state.y=clamp(state.y+state.vy,20,WORLD-20)}
- collect();updateEffects();updateParticles();state.organisms.forEach(updateOrganism);if(state.mode==="rest"&&state.tick%45===0)conditionNiche();
+ collect();updateEffects();updateParticles();state.organisms.forEach(updateOrganism);if(state.mode==="rest"&&state.tick%300===0)conditionNiche();
  if(state.resources.length<50&&state.tick%60===0)spawnFood(3);
  if(state.organisms.length<18&&state.tick%180===0)state.organisms.push(makeOrganism());
  if(state.tick%300===0){ecologyTick();renderAll();save()}
@@ -786,6 +788,12 @@ let activePointer=null,longTimer=null,startPoint=null,moved=false;
 function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);movementTarget(p.x,p.y);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y)},560)}
 function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;const p=worldPoint(e);movementTarget(p.x,p.y)}
 function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);canvas.releasePointerCapture?.(e.pointerId);activePointer=null}
+function applyBuildIdentity(){
+ document.title=`EVOLVA v${BUILD_VERSION}`;
+ document.querySelectorAll("[data-build-version]").forEach(el=>el.textContent=`v${BUILD_VERSION}`);
+ document.querySelectorAll("[data-build-number]").forEach(el=>el.textContent=BUILD_VERSION);
+ const meta=document.querySelector('meta[name="evolva-build"]');if(meta)meta.content=BUILD_VERSION
+}
 function bind(){
  atlasCanvas=$("atlasCanvas");atlasCtx=atlasCanvas.getContext("2d");
  atlasCanvas.addEventListener("pointerdown",atlasPointerDown,{passive:false});
@@ -811,7 +819,12 @@ function load(){
   state.axes=Object.assign(b.axes,x.axes||{});state.pressures=Object.assign(b.pressures,x.pressures||{});
   state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
   state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
-  state.resources=Array.isArray(x.resources)?x.resources:[];state.organisms=Array.isArray(x.organisms)?x.organisms.map(o=>Object.assign({module:null,stuck:0,stunned:0,flash:0},o)):[];state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];state.effects=Array.isArray(x.effects)?x.effects:[];state.niches=Array.isArray(x.niches)?x.niches:[];state.particles=[];state.interactionTarget=null;state.logs=Array.isArray(x.logs)?x.logs:[];
+  state.resources=Array.isArray(x.resources)?x.resources.filter(r=>r&&FOOD[r.type]&&Number.isFinite(r.x)&&Number.isFinite(r.y)).map(r=>Object.assign({phase:0},r)):[];
+  state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
+  state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];
+  state.effects=Array.isArray(x.effects)?x.effects.filter(e=>e&&EFFECT_TYPES[e.type]&&[e.x,e.y,e.radius,e.life].every(Number.isFinite)).map(e=>Object.assign({power:1,owner:"player",phase:0},e)):[];
+  state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
+  state.particles=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
   state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
   state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};
@@ -825,6 +838,9 @@ function start(newLineage=false){
  if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500)
 }
 let running=false;function loop(now){if(!running)return;update();draw();drawAtlas(now);requestAnimationFrame(loop)}
-window.addEventListener("error",e=>{const x=$("error");x.hidden=false;x.textContent=e.message});
-$("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
-if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js?v=7.5").catch(()=>{});
+window.addEventListener("error",e=>{const x=$("error");if(x){x.hidden=false;x.textContent=`Build ${BUILD_VERSION}: ${e.message}`}});window.addEventListener("unhandledrejection",e=>{const x=$("error");if(x){x.hidden=false;x.textContent=`Build ${BUILD_VERSION}: ${e.reason?.message||e.reason||"Unhandled promise rejection"}`}});
+applyBuildIdentity();$("continue").onclick=()=>start(false);$("newGame").onclick=()=>start(true);bind();
+if("serviceWorker"in navigator&&location.protocol.startsWith("http")){
+ navigator.serviceWorker.register(`./sw.js?v=${BUILD_VERSION}`,{updateViaCache:"none"}).then(reg=>{reg.update();if(reg.waiting)reg.waiting.postMessage({type:"SKIP_WAITING"})}).catch(()=>{});
+ navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!sessionStorage.getItem("evolva-controller-reload")){sessionStorage.setItem("evolva-controller-reload","1");location.reload()}})
+}
