@@ -1,10 +1,10 @@
 {
   "product": "EVOLVA",
-  "version": "8.1.0",
-  "cache": "evolva-v8-1-0",
-  "saveKey": "evolva-save-v8-1-0",
+  "version": "8.2.0",
+  "cache": "evolva-v8-2-0",
+  "saveKey": "evolva-save-v8-2-0",
   "engine": "fixed-timestep-system-engine",
   "simulationHz": 60,
   "legacySaveFloor": "7.0.0",
-  "name": "Living World"
+  "name": "Phenotype Intelligence"
 }

@@ -106,3 +106,17 @@ linear-gradient(#07120d,#08150f)}
 #world{image-rendering:auto;filter:saturate(1.12) contrast(1.04)}
 .world-shell{background:radial-gradient(circle at 50% 42%,rgba(47,110,78,.12),transparent 70%)}
 .tile-readout{backdrop-filter:blur(3px)}
+
+/* v8.2 phenotype intelligence and high-resolution atlas */
+.living-atlas{height:470px;background:
+ radial-gradient(circle at 50% 50%,rgba(125,224,255,.08),transparent 32%),
+ radial-gradient(circle at 18% 24%,rgba(219,160,255,.06),transparent 26%),
+ linear-gradient(135deg,#06100c,#0a1913 48%,#07120d);box-shadow:inset 0 0 35px rgba(0,0,0,.65)}
+#atlasCanvas{image-rendering:auto;filter:saturate(1.15) contrast(1.05)}
+.atlas-tooltip{max-width:245px;font-size:7px;box-shadow:0 0 18px rgba(255,214,106,.18)}
+.atlas-tooltip .tip-tier{display:block;color:var(--blue);font-size:6px;margin-bottom:5px}.atlas-tooltip strong{display:block;color:var(--green);margin:5px 0}.atlas-tooltip u{color:var(--text);text-decoration:none;letter-spacing:.5px}
+.attribute-strip{grid-template-columns:repeat(2,1fr);gap:5px}.attribute-mini{min-height:82px;text-align:left;padding:8px 24px 7px 8px;border-color:#315b47;background:linear-gradient(145deg,#0a1913,#10261d)}
+.attribute-mini span{display:inline-block;font-size:14px;margin-right:5px}.attribute-mini b{display:inline;font-size:8px}.attribute-mini strong{font-size:14px;margin:4px 0;color:var(--green)}.attribute-mini small{display:block;font-size:5.5px;line-height:1.35;color:var(--muted)}.attribute-mini button{width:19px;height:19px;right:4px;top:4px}
+.inspect{left:8px;right:auto;top:36px;width:min(245px,72%);max-width:none;padding:8px;background:rgba(4,11,8,.84);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(125,224,255,.8);box-shadow:0 4px 18px rgba(0,0,0,.45);font-size:6.5px;line-height:1.5;pointer-events:none}
+.inspect-head{display:grid;gap:4px;margin-bottom:3px}.inspect-head b{font-size:8px}.inspect small{display:block;color:var(--blue);margin-bottom:5px}.threat{display:inline-block;width:max-content;padding:2px 4px;border:1px solid currentColor;font-size:6px;font-weight:bold}.threat.easy{color:var(--green)}.threat.favourable{color:#c9ff8c}.threat.risky{color:var(--gold)}.threat.severe{color:#ff9b77}.threat.impossible{color:var(--red)}
+@media(max-width:360px){.living-atlas{height:420px}.attribute-strip{grid-template-columns:1fr 1fr}.attribute-mini{min-height:88px}}

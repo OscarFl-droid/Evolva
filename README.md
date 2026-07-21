@@ -1,24 +1,14 @@
-# EVOLVA v8.1 — Living World
+# EVOLVA v8.2 — Phenotype Intelligence
 
-A coordinated autonomous ecosystem and visual overhaul on the v8 fixed-timestep engine.
+This release makes Derived Biological Capacities operational across movement, combat, defence, hydration, detection, ecological fit, signalling, merger, living-module retention and organism inspection.
 
-## Main changes
+## New
+- Capacity effects displayed directly beneath each biological capacity.
+- Five-level organism readout controlled by Cognition, Communication and sensory innovations.
+- Tap organisms for a transparent risk-assessment panel; tapping empty terrain still moves.
+- Threat classes: easy, favourable, risky, severe and overwhelming.
+- High-DPI Living Genome Atlas with richer developmental field graphics, clearer node states, tier rings, complete prerequisites and current/required capacity values.
+- v8.1 saves migrate into the separate `evolva-save-v8-2-0` key.
 
-- 18% wider camera and 3000×3000 ecosystems
-- 30 target autonomous organisms, capped at 44 for mobile performance
-- organism hunting, scavenging, courtship, reproduction, autonomous merging, defensive chemistry, schools and producer settlement
-- persistent carcasses and detrital food web
-- habitat succession: detritus → microbial films → living mats; spores → fungal patches
-- weather cycles: calm current, nutrient rain, microbial bloom, thermal surge and spore fronts
-- event-aware camera easing for births, hunts and mergers
-- richer procedural organisms with role-specific silhouettes and idle membrane animation
-- ambient rain, spores, blooms and heat distortion
-- persistent ecological counters and save migration from v8.0 and v7
-
-## Performance bounds
-
-Organisms, carcasses and habitat patches are explicitly capped. Simulation remains fixed-timestep and rendering culls off-screen entities.
-
-## Deployment
-
-Delete old repository contents and upload this entire package. Cache: `evolva-v8-1-0`.
+Deploy by replacing the repository contents with this package. Cache: `evolva-v8-2-0`.
+Run `node tools/audit.mjs` before deployment.
