@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="9.0.3",BUILD_CACHE="evolva-v9-0-3";
+export const BUILD_VERSION="9.0.4",BUILD_CACHE="evolva-v9-0-4";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v9-0-3",LEGACY_SAVE_KEY="evolva-save-v9-0-2",OLDER_SAVE_KEYS=["evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v9-0-4",LEGACY_SAVE_KEY="evolva-save-v9-0-3",OLDER_SAVE_KEYS=["evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -482,7 +482,10 @@ function weightedFood(){
 function spawnFood(n=1){for(let i=0;i<n;i++)state.resources.push({x:rand(30,WORLD-30),y:rand(30,WORLD-30),type:weightedFood(),phase:rand(0,6.28)})}
 function makeOrganism(){
  const mass=rand(.35,Math.max(2.2,state.mass*1.8));
- return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"]),module:Math.random()<.72?randomModule().id:null,stuck:0,stunned:0,flash:0,age:rand(0,1800),fertility:rand(.2,1),cooldown:rand(0,700),lineage:Math.floor(rand(1,9999)),role:null,school:null,signal:0};
+ const module=Math.random()<.72?randomModule().id:null;
+ const moduleAxis=moduleById(module)?.axis;
+ const defense=moduleAxis==="resilience"?choice(["shell","mucus"]):moduleAxis==="innovation"?choice(["pulse","toxin"]):moduleAxis==="adaptability"?"camouflage":mass>1.45?"shell":choice(["mucus","toxin","camouflage","pulse"]);
+ return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"]),module,defense,stuck:0,stunned:0,flash:0,age:rand(0,1800),fertility:rand(.2,1),cooldown:rand(0,700),lineage:Math.floor(rand(1,9999)),role:null,school:null,signal:0};
 }
 function populate(){state.organisms=[];for(let i=0;i<ECO_CONFIG.targetOrganisms;i++)state.organisms.push(makeOrganism())}
 function nearestResource(x,y){let best=null,d=Infinity;for(const r of state.resources){const q=Math.hypot(r.x-x,r.y-y);if(q<d){d=q;best=r}}return best?{o:best,d}:null}
@@ -654,6 +657,23 @@ function relationScore(o){
  return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
        -(o.aggression*7+o.hunger/18)+(gene("quorum signal")?3:0)+(gene("cooperative exchange")?4:0);
 }
+const ORGANISM_DEFENSES={
+ shell:{name:"MINERAL SHELL",roll:3,desc:"Rigid plating resists enclosure and impact."},
+ mucus:{name:"ADHESIVE MUCUS",roll:2,desc:"A viscous secretion impedes pursuit and capture."},
+ toxin:{name:"REACTIVE TOXIN",roll:2,desc:"Contact triggers a damaging chemical discharge."},
+ pulse:{name:"BIOELECTRIC PULSE",roll:2,desc:"A rapid field discharge disrupts nearby membranes."},
+ camouflage:{name:"CHROMATIC EVASION",roll:1,desc:"The organism breaks target lock and escapes."}
+};
+function organismDefense(o){return ORGANISM_DEFENSES[o?.defense]||ORGANISM_DEFENSES.mucus}
+function applyOrganismDefense(o){
+ const d=organismDefense(o);let detail=d.desc;
+ if(o.defense==="toxin"){const harm=Math.max(2,Math.round((3+o.aggression*6)/phenotype().defense));state.health=clamp(state.health-harm);detail+=` The discharge removed ${harm} health.`;addEffect("toxin",o.x,o.y,70,Math.max(.7,o.aggression),260,"other")}
+ else if(o.defense==="mucus"){const loss=3;state.energy=clamp(state.energy-loss);state.vx*=.4;state.vy*=.4;detail+=` Escaping the adhesive field cost ${loss} energy.`;addEffect("mucus",o.x,o.y,78,1,300,"other")}
+ else if(o.defense==="pulse"){const loss=4;state.energy=clamp(state.energy-loss);state.vx*=.25;state.vy*=.25;detail+=` Membrane recovery cost ${loss} energy.`;addEffect("pulse",o.x,o.y,90,1,120,"other")}
+ else if(o.defense==="camouflage"){o.state="fleePlayer";o.stateTimer=380;detail+=" Its outline dissolved into the substrate pattern."}
+ else{o.flash=8;detail+=" The plating absorbed much of the force."}
+ return `${d.name}: ${detail}`
+}
 function showEncounter(title,odds,playerRoll,otherRoll,text,playerGood=true,icon="⌁",playerLabel="YOUR RESPONSE",otherLabel="OTHER ORGANISM"){
  state.encounter={title,odds,playerRoll,otherRoll,text};
  $("encounterTitle").textContent=title;$("encounterOdds").textContent=odds;
@@ -683,24 +703,25 @@ function resolveIntent(intent){
  if(!near){toast("TARGET MOVED AWAY");return}
  const size=state.mass/(near.mass||1),chem=encounterModifier("communication")+encounterModifier("cognition")+(gene("chemical sensing")?2:0)+moduleCount("signal");
  const force=encounterModifier("power")+Math.floor(size*2)+(gene("pseudopods")?2:0);
- const p=d20()+(intent==="signal"||intent==="merge"?chem:force),o=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2);
+ const defense=organismDefense(near);
+ const p=d20()+(intent==="signal"||intent==="merge"?chem:force),o=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2)+defense.roll;
  let title="",text="",icon="⌁",good=true;
  if(intent==="signal"){state.lineageActions.signals++;
-   if(p>=o+3){const gain=6+moduleCount("signal")*2;state.energy=clamp(state.energy+gain);addPressure("communication",2);near.state="inspectPlayer";near.stateTimer=260;title="RECIPROCAL SIGNAL";text=`Molecular patterns matched. Metabolites and hazard information were exchanged, restoring ${gain} energy.`;icon="⇄";addEffect("nutrient",near.x,near.y,70,1,300,"shared")}
+   if(p>=o+3){const gain=6+moduleCount("signal")*2;state.energy=clamp(state.energy+gain);addPressure("communication",2);near.state="inspectPlayer";near.stateTimer=260;title="RECIPROCAL SIGNAL";text=`Molecular patterns matched. Metabolites and hazard information were exchanged, restoring ${gain} energy.`;icon="⇄";addEffect("nutrient",near.x,near.y,70,1,300,"shared");addXP(6,"Reciprocal communication succeeded")}
    else if(p>=o-2){title="UNCERTAIN RECOGNITION";text="Both organisms circled and sampled each other's chemistry, but neither committed to exchange.";icon="?"
-   }else{const harm=Math.round((4+near.aggression*8)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`The signal triggered a defensive secretion. You lost ${harm} health and retreated.`;icon="†";good=false;addEffect("toxin",near.x,near.y,85,near.aggression,360,"other")}
+   }else{const harm=Math.round((3+near.aggression*5)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`Recognition failed. You lost ${harm} health and retreated. ${applyOrganismDefense(near)}`;icon="†";good=false}
  }else if(intent==="merge"){state.lineageActions.mergers++;
    const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
-   if(p+compatibility>=o+7){const energyCost=Math.round(clamp(9+near.mass*2,10,18)),supplies=addMergeSupplies(near,3);state.energy=clamp(state.energy-energyCost);integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;title="STABLE ENDOSYMBIOSIS";text=`Fusion required ${energyCost} energy. The organism persists as a living module, while transferable reserves added ${supplies} to your pack.`;icon="◉"}
-   else if(p+compatibility>=o+1){const energyCost=7,supplies=addMergeSupplies(near,1);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-3);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text=`The membranes separated after exchanging cytoplasm. You spent ${energyCost} energy and retained ${supplies} in your pack.`;icon="∞"}
-   else{const energyCost=5;state.energy=clamp(state.energy-energyCost);const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules, cost ${energyCost} energy and inflicted ${harm} damage.`:`Fusion cost ${energyCost} energy, destabilised your membrane and caused ${harm} damage.`;icon="◐";good=false}
+   if(p+compatibility>=o+7){const energyCost=Math.round(clamp(9+near.mass*2,10,18)),supplies=addMergeSupplies(near,3);state.energy=clamp(state.energy-energyCost);integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;addXP(10,"Stable endosymbiosis succeeded");title="STABLE ENDOSYMBIOSIS";text=`Fusion required ${energyCost} energy. The organism persists as a living module, while transferable reserves added ${supplies} to your pack.`;icon="◉"}
+   else if(p+compatibility>=o+1){const energyCost=7,supplies=addMergeSupplies(near,1);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-3);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;addXP(4,"Transient biological exchange succeeded");title="TRANSIENT FUSION";text=`The membranes separated after exchanging cytoplasm. You spent ${energyCost} energy and retained ${supplies} in your pack.`;icon="∞"}
+   else{const energyCost=5;state.energy=clamp(state.energy-energyCost);const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=(stolen?`The larger organism reversed the membrane flow, captured one of your living modules, cost ${energyCost} energy and inflicted ${harm} damage.`:`Fusion cost ${energyCost} energy, destabilised your membrane and caused ${harm} damage.`)+` ${applyOrganismDefense(near)}`;icon="◐";good=false}
  }else if(intent==="engulf"){state.lineageActions.engulfs++;
-   if(p>=o){const energyCost=Math.round(clamp(5+near.mass*2,6,14)),healthGain=Math.round(clamp(7+near.mass*7,8,28));state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health+healthGain);addPressure("power",2.2);state.lineageActions.hunts++;removeOrganism(near);state.ecosystem.hunts++;title="COMPLETE ENGULFMENT";text=`The organism was enclosed and digested. Biomass restored ${healthGain} health, while capture and digestion consumed ${energyCost} energy.`;icon="∨"
-   }else{const energyCost=4,harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The failed capture cost ${energyCost} energy. The target resisted, damaged your membrane for ${harm} health and attempted to absorb exposed structures.`;icon="◑";good=false}
+   if(p>=o){const energyCost=Math.round(clamp(5+near.mass*2,6,14)),healthGain=Math.round(clamp(7+near.mass*7,8,28));state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health+healthGain);addPressure("power",2.2);state.lineageActions.hunts++;removeOrganism(near);state.ecosystem.hunts++;addXP(Math.round(7+near.mass*2),"Complete engulfment succeeded");title="COMPLETE ENGULFMENT";text=`The organism was enclosed and digested. Biomass restored ${healthGain} health, while capture and digestion consumed ${energyCost} energy.`;icon="∨"
+   }else{const energyCost=4,harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The failed capture cost ${energyCost} energy. The target resisted and damaged your membrane for ${harm} health. ${applyOrganismDefense(near)}`;icon="◑";good=false}
  }else{
    const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
    addEffect(type,state.x,state.y,(type==="pulse"?135:105)*(1+(derivedAxis("communication")-1)*.025),1+derivedAxis("resilience")*.06,(type==="pulse"?150:620)*(1+(derivedAxis("innovation")-1)*.025),"player");
-   addPressure(type==="mucus"?"resilience":"innovation",1.7);title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon;
+   addPressure(type==="mucus"?"resilience":"innovation",1.7);addXP(Math.round(4+near.aggression*3),"A defensive field was deployed successfully");title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon;
    showEncounter(title,"deployed",Math.max(1,Math.round(derivedAxis("resilience"))),Math.max(1,Math.round(near.aggression*10)),text,true,icon,"FIELD STRENGTH","LOCAL THREAT");renderAll();save();return
  }
  showEncounter(title,good?"favourable":"danger",p,o,text,good,icon);renderAll();save()
@@ -878,10 +899,14 @@ function systemSuccession(){
  state.patches=state.patches.filter(p=>p.age<9000||p.strength>45)
 }
 function systemCamera(){
- const c=state.camera;if(!c)return;let tx=0,ty=0;
- if(c.eventTimer>0&&Number.isFinite(c.eventX)){c.eventTimer--;tx=clamp((c.eventX-state.x)*.32,-150,150);ty=clamp((c.eventY-state.y)*.24,-100,100)}
- else{c.eventX=c.eventY=null;const interesting=state.organisms.find(o=>["huntOther","court"].includes(o.state)&&Math.hypot(o.x-state.x,o.y-state.y)<550);if(interesting){tx=clamp((interesting.x-state.x)*.18,-95,95);ty=clamp((interesting.y-state.y)*.14,-65,65)}}
- c.lookX+=(tx-c.lookX)*.025;c.lookY+=(ty-c.lookY)*.025
+ const c=state.camera;if(!c)return;
+ // Keep the player centred. Idle awareness is represented by zoom, never unpredictable panning.
+ c.eventX=c.eventY=null;c.eventTimer=0;
+ c.lookX+=(0-c.lookX)*.12;c.lookY+=(0-c.lookY)*.12;
+ const idle=state.mode==="rest"||(!state.target&&Math.hypot(state.vx,state.vy)<.12);
+ const awareness=clamp((derivedAxis("communication")-1)/14,0,.28);
+ const desired=idle?(state.mode==="rest"?.78-awareness:.88-awareness*.55):1;
+ c.zoom+=(desired-c.zoom)*.025
 }
 function systemClock(){
  if(simulationPaused()||state.encounter||state.interactionTarget)return false;
@@ -1007,7 +1032,7 @@ function renderEcology(){
  $("nicheCards").innerHTML=here.length?here.sort((a,b)=>b.strength-a.strength).slice(0,6).map(n=>`<div class="niche-card"><b>${n.type}</b>${Math.round(n.strength)}% conditioned · ${n.rests} rest deposits<div class="niche-meter"><em style="width:${n.strength}%"></em></div></div>`).join(""):`<div class="card"><b>No conditioned niche</b>Rest repeatedly in one location to create a persistent healing environment.</div>`
 }
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
-function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
+function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;const h=$("cycleHistory");if(h)h.textContent=state.logs[0]?.replace(/^Cycle \d+: /,"")||"Lineage newly emerged";renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
 function inspectionTier(){
  const c=derivedAxis("cognition"),comm=derivedAxis("communication"),sens=(gene("chemical sensing")?1:0)+(gene("threat model")?1:0)+(gene("electroreception")?1:0);
@@ -1025,11 +1050,11 @@ function threatAssessment(o){
 function organismLabel(o){const m=moduleById(o.module),role=o.role||organismRole(o);return m?`${m.icon} ${m.name}`:`${role.toUpperCase()} ORGANISM`}
 function inspectionHitRadius(o,wideScan=false){
  const body=Math.max(10,radius(o.mass)*.72);
- return (body+(wideScan?24:7))/cameraScale()
+ return (body+(wideScan?30:16))/cameraScale()
 }
 function inspectAt(wx,wy,clientX=null,clientY=null,wideScan=false){
  let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}
- const box=$("inspect");if(!best||d>=inspectionHitRadius(best,wideScan)){box.hidden=true;return false}
+ const box=$("inspect"),tileBox=$("tileReadout");if(!best||d>=inspectionHitRadius(best,wideScan)){box.hidden=true;if(tileBox)tileBox.hidden=false;return false}
  const tier=inspectionTier(),assessment=threatAssessment(best),m=moduleById(best.module),distance=Math.round(Math.hypot(best.x-state.x,best.y-state.y));
  const size=best.mass<state.mass*.7?"smaller":best.mass>state.mass*1.35?"larger":"similar";
  const condition=best.health>75?"vigorous":best.health>40?"impaired":"critical";
@@ -1037,23 +1062,25 @@ function inspectAt(wx,wy,clientX=null,clientY=null,wideScan=false){
  const lines=[`<div class="inspect-head"><b style="color:${best.color}">${organismLabel(best)}</b><span class="threat ${assessment.className}">${assessment.label}</span></div>`,`<small>readout ${tier}/5 · confidence ${assessment.confidence}%</small>`];
  lines.push(`<div class="inspect-row">${size} · ${distance} away${tier>=2?` · ${condition}`:""}</div>`);
  if(tier>=2)lines.push(`<div class="inspect-row">${behaviour}${tier>=3?` · mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)}`:""}</div>`);
- if(tier>=4)lines.push(`<div class="inspect-row">${best.role||organismRole(best)} · speed ${best.speed.toFixed(2)} · ${best.aggression>.6?"reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
+ if(tier>=4)lines.push(`<div class="inspect-row">${best.role||organismRole(best)} · ${organismDefense(best).name.toLowerCase()} · ${best.aggression>.6?"reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
  if(tier>=5)lines.push(`<div class="inspect-row">${m?m.name:"no stable module"} · predicted ${assessment.label.toLowerCase()}</div>`);
  else if(m&&tier>=3)lines.push(`<div class="inspect-row">specialised organ detected</div>`);
- box.innerHTML=lines.join("");box.hidden=false;
+ box.innerHTML=lines.join("");box.hidden=false;if(tileBox)tileBox.hidden=true;
  const rect=canvas.getBoundingClientRect(),bw=box.offsetWidth||176,bh=box.offsetHeight||80;
  const targetScreenX=clientX===null?rect.left+rect.width/2:clientX;
  const placeLeft=targetScreenX>rect.left+rect.width*.56;
  box.style.left=placeLeft?"7px":"auto";box.style.right=placeLeft?"auto":"7px";box.style.top="34px";
  if(bh>rect.height*.34)box.style.maxHeight=Math.max(68,Math.floor(rect.height*.3))+"px";
- clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500);return true
+ clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>{box.hidden=true;if(tileBox)tileBox.hidden=false},3500);return true
 }
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(cameraCenter().x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(cameraCenter().y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
-let activePointer=null,longTimer=null,startPoint=null,moved=false;
-function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y,e.clientX,e.clientY,true)},560)}
-function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;if(moved){const p=worldPoint(e);movementTarget(p.x,p.y)}}
-function resetWorldPointer(e){clearTimeout(longTimer);longTimer=null;try{canvas.releasePointerCapture?.(e.pointerId)}catch{}activePointer=null;startPoint=null;moved=false}
-function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);if(!moved){const p=worldPoint(e);if(!inspectAt(p.x,p.y,e.clientX,e.clientY,false))movementTarget(p.x,p.y)}resetWorldPointer(e)}
+let activePointer=null,longTimer=null,startPoint=null,moved=false,scrollGesture=false;
+function pointerStart(e){activePointer=e.pointerId;startPoint={x:e.clientX,y:e.clientY};moved=false;scrollGesture=false;const p=worldPoint(e);longTimer=setTimeout(()=>{if(!moved&&!scrollGesture)inspectAt(p.x,p.y,e.clientX,e.clientY,true)},560)}
+function pointerMove(e){if(activePointer!==e.pointerId||!startPoint)return;const dx=e.clientX-startPoint.x,dy=e.clientY-startPoint.y;
+ if(!moved&&Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)*1.15){scrollGesture=true;clearTimeout(longTimer);activePointer=null;startPoint=null;return}
+ if(Math.hypot(dx,dy)>9)moved=true;if(moved){e.preventDefault();try{canvas.setPointerCapture?.(e.pointerId)}catch{}const p=worldPoint(e);movementTarget(p.x,p.y)}}
+function resetWorldPointer(e){clearTimeout(longTimer);longTimer=null;try{canvas.releasePointerCapture?.(e.pointerId)}catch{}activePointer=null;startPoint=null;moved=false;scrollGesture=false}
+function pointerEnd(e){if(activePointer!==e.pointerId)return;clearTimeout(longTimer);if(!moved&&!scrollGesture){e.preventDefault();const p=worldPoint(e);if(!inspectAt(p.x,p.y,e.clientX,e.clientY,false))movementTarget(p.x,p.y)}resetWorldPointer(e)}
 function pointerCancel(e){if(activePointer!==e.pointerId)return;e.preventDefault();resetWorldPointer(e)}
 function applyBuildIdentity(){
  document.title=`EVOLVA v${BUILD_VERSION}`;
