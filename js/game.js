@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="8.1.0",BUILD_CACHE="evolva-v8-1-0";
+export const BUILD_VERSION="8.2.0",BUILD_CACHE="evolva-v8-2-0";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v8-1-0",LEGACY_SAVE_KEY="evolva-save-v8-0-0",OLDER_SAVE_KEYS=["evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v8-2-0",LEGACY_SAVE_KEY="evolva-save-v8-1-0",OLDER_SAVE_KEYS=["evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -127,6 +127,9 @@ if(ATLAS_POS["armoured cortex"])ATLAS_POS["armoured cortex"].y-=22;
 if(ATLAS_POS["detoxification"])ATLAS_POS["detoxification"].y+=22;
 
 let atlasCanvas,atlasCtx,atlasPointer=null,atlasDrag=null,atlasHover=null,atlasLastDraw=0,atlasDirty=true;
+const ATLAS_LOGICAL_W=860,ATLAS_LOGICAL_H=720;
+function atlasDpr(){return Math.min(2.5,window.devicePixelRatio||1)}
+function resizeAtlasCanvas(){if(!atlasCanvas)return;const d=atlasDpr(),w=Math.round(ATLAS_LOGICAL_W*d),h=Math.round(ATLAS_LOGICAL_H*d);if(atlasCanvas.width!==w||atlasCanvas.height!==h){atlasCanvas.width=w;atlasCanvas.height=h;atlasDirty=true}}
 const atlasPointers=new Map();
 function atlasStatus(node){
  if(gene(node.id))return"owned";
@@ -152,8 +155,8 @@ function clampAtlasView(){
  state.atlasView.y=clamp(state.atlasView.y,-margin,720+margin)
 }
 function atlasWorldFromClient(clientX,clientY){
- const rect=atlasCanvas.getBoundingClientRect(),sx=(clientX-rect.left)*(atlasCanvas.width/rect.width),sy=(clientY-rect.top)*(atlasCanvas.height/rect.height);
- return{x:(sx-atlasCanvas.width/2)/state.atlasView.zoom+state.atlasView.x,y:(sy-atlasCanvas.height/2)/state.atlasView.zoom+state.atlasView.y}
+ const rect=atlasCanvas.getBoundingClientRect(),sx=(clientX-rect.left)*(ATLAS_LOGICAL_W/rect.width),sy=(clientY-rect.top)*(ATLAS_LOGICAL_H/rect.height);
+ return{x:(sx-ATLAS_LOGICAL_W/2)/state.atlasView.zoom+state.atlasView.x,y:(sy-ATLAS_LOGICAL_H/2)/state.atlasView.zoom+state.atlasView.y}
 }
 function atlasWorldFromEvent(e){return atlasWorldFromClient(e.clientX,e.clientY)}
 function atlasNodeAt(e){
@@ -191,7 +194,7 @@ function atlasPointerMove(e){
    const after=atlasWorldFromClient(mx,my);state.atlasView.x+=atlasDrag.world.x-after.x;state.atlasView.y+=atlasDrag.world.y-after.y;clampAtlasView();atlasDirty=true;return
  }
  if(e.pointerId!==atlasPointer||!atlasDrag||atlasDrag.pinch)return;
- const rect=atlasCanvas.getBoundingClientRect(),dx=(e.clientX-atlasDrag.x)*(atlasCanvas.width/rect.width)/state.atlasView.zoom,dy=(e.clientY-atlasDrag.y)*(atlasCanvas.height/rect.height)/state.atlasView.zoom;
+ const rect=atlasCanvas.getBoundingClientRect(),dx=(e.clientX-atlasDrag.x)*(ATLAS_LOGICAL_W/rect.width)/state.atlasView.zoom,dy=(e.clientY-atlasDrag.y)*(ATLAS_LOGICAL_H/rect.height)/state.atlasView.zoom;
  if(Math.hypot(dx,dy)>4)atlasDrag.moved=true;state.atlasView.x=atlasDrag.vx-dx;state.atlasView.y=atlasDrag.vy-dy;clampAtlasView();atlasDirty=true
 }
 function atlasPointerUp(e){
@@ -205,7 +208,9 @@ function atlasWheel(e){e.preventDefault();atlasZoom(e.deltaY<0?1.12:.89,e.client
 function showAtlasTooltip(node,e){
  const box=$("atlasTooltip"),status=atlasStatus(node),missing=node.req.filter(r=>!gene(r));
  const thresholdMissing=Object.entries(node.min||{}).filter(([a,v])=>derivedAxis(a)<v).map(([a,v])=>`${AXES[a].name} ${derivedAxis(a)}/${v}`);
- box.innerHTML=`<b>${node.icon} ${node.name}</b>${node.desc}<small>${node.effect}<br>${AXES[node.axis].name} · Tier ${node.tier}<br>${status==="owned"?"Fixed in lineage":status==="available"?"Accessible at next major evolution":[missing.length?"Requires: "+missing.join(", "):"",thresholdMissing.length?"Needs: "+thresholdMissing.join(", "):""].filter(Boolean).join("<br>")}</small>`;
+ const reqText=node.req.length?node.req.map(r=>`${gene(r)?"✓":"○"} ${ATLAS.find(x=>x.id===r)?.name||r}`).join("<br>"):"✓ Basal innovation";
+ const statText=Object.entries(node.min||{}).map(([a,v])=>`${derivedAxis(a)>=v?"✓":"○"} ${AXES[a].name}: ${derivedAxis(a)} / ${v}`).join("<br>")||"No capacity threshold";
+ box.innerHTML=`<b>${node.icon} ${node.name}</b><span class="tip-tier">${AXES[node.axis].icon} ${AXES[node.axis].name} · Tier ${node.tier}</span>${node.desc}<strong>${node.effect}</strong><small><u>PREREQUISITES</u><br>${reqText}<br><u>CAPACITY THRESHOLDS</u><br>${statText}<br><u>STATUS</u><br>${status==="owned"?"Fixed in lineage":status==="available"?"Accessible at next major evolution":status==="pressured"?"Developmentally favoured but still locked":"Distant developmental possibility"}</small>`;
  const rect=atlasCanvas.getBoundingClientRect();box.style.left=Math.min(Math.max(6,rect.width-box.offsetWidth-6),Math.max(6,e.clientX-rect.left+8))+"px";box.style.top=Math.min(Math.max(6,rect.height-125),Math.max(6,e.clientY-rect.top-15))+"px";box.hidden=false;clearTimeout(showAtlasTooltip.t);showAtlasTooltip.t=setTimeout(()=>box.hidden=true,5000)
 }
 function atlasNodeColor(status,node){
@@ -218,9 +223,12 @@ function drawAtlas(now=performance.now()){
  if(!atlasCanvas||!$("lineageTab").classList.contains("active"))return;
  if(!atlasDirty&&now-atlasLastDraw<50)return;atlasLastDraw=now;atlasDirty=false;
  sanitizeAtlasView();
- const c=atlasCtx,w=atlasCanvas.width,h=atlasCanvas.height;c.clearRect(0,0,w,h);
+ resizeAtlasCanvas();const c=atlasCtx,d=atlasDpr(),w=ATLAS_LOGICAL_W,h=ATLAS_LOGICAL_H;c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,w,h);
+ // developmental field rings and axis labels
  c.save();c.translate(w/2,h/2);c.scale(state.atlasView.zoom,state.atlasView.zoom);c.translate(-state.atlasView.x,-state.atlasView.y);
  c.lineWidth=1.5/state.atlasView.zoom;
+ c.strokeStyle="rgba(125,224,255,.08)";for(const rr of [90,170,255,340]){c.beginPath();c.arc(430,360,rr,0,Math.PI*2);c.stroke()}
+ c.font="bold 9px monospace";c.textAlign="center";for(const [axis,a] of Object.entries(AXES)){const idx=Object.keys(AXES).indexOf(axis),ang=-Math.PI/2+idx/Object.keys(AXES).length*Math.PI*2;c.fillStyle="rgba(232,255,218,.42)";c.fillText(`${a.icon} ${a.name.toUpperCase()}`,430+Math.cos(ang)*315,360+Math.sin(ang)*315)}
  for(const n of ATLAS){
    if(!atlasVisible(n))continue;
    const to=ATLAS_POS[n.id];
@@ -246,7 +254,9 @@ function drawAtlas(now=performance.now()){
      c.lineWidth=(8+Math.sin(performance.now()/300)*2)/state.atlasView.zoom;c.beginPath();c.arc(p.x,p.y,18,0,Math.PI*2);c.stroke()
    }
    c.fillStyle=atlasNodeColor(status,n);c.strokeStyle=status==="owned"?"#dfffdc":status==="available"?"#fff2aa":"#45604f";c.lineWidth=2/state.atlasView.zoom;
-   const r=status==="owned"?13:11;c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);c.fill();c.stroke();
+   const r=status==="owned"?14:12;
+   c.globalAlpha=.22;c.strokeStyle=AXES[n.axis]?"#7de0ff":"#45604f";c.beginPath();c.arc(p.x,p.y,r+4+n.tier,0,Math.PI*2);c.stroke();c.globalAlpha=1;
+   c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);c.fill();c.stroke();
    c.fillStyle=status==="locked"?"#7b9582":"#07120d";c.font=`${Math.max(7,10/state.atlasView.zoom)}px monospace`;c.textAlign="center";c.fillText(n.icon,p.x,p.y+3.5/state.atlasView.zoom);
    if(state.atlasView.zoom>.72){
      c.fillStyle=status==="locked"?"rgba(168,197,165,.48)":"#e8ffda";c.font=`${Math.max(6,7.5/state.atlasView.zoom)}px monospace`;
@@ -310,8 +320,19 @@ function xpNeeded(){return XP_BASE+Math.max(0,state.level-1)*18}
 function derivedAxis(axis){
  let v=state.axes[axis]||1;
  for(const id of state.genes){const node=ATLAS.find(n=>n.id===id);if(node?.axis===axis)v+=node.tier*.35}
+ for(const id of state.symbionts||[]){const m=moduleById(id);if(m?.axis===axis)v+=.45}
+ const diet=dietAxisBonus(axis);v+=Math.min(1.5,diet*.035);
  return Math.round(v*10)/10;
 }
+function capacityEffects(axis){const v=derivedAxis(axis),n=Math.max(0,v-1);return{
+ power:`+${Math.round(n*8)}% mechanical force; +${Math.round(n*5)}% engulfment and intimidation`,
+ mobility:`+${Math.round(n*5.5)}% movement; +${Math.round(n*4)}% escape control`,
+ resilience:`+${Math.round(n*7)}% defence; −${Math.round(Math.min(35,n*2.5))}% water use and environmental attrition`,
+ cognition:`+${Math.round(n*8)}% detection; organism readout depth ${inspectionTier()}/5`,
+ adaptability:`+${Math.round(n*6)}% plasticity; improved biome fit and stress recovery`,
+ communication:`+${Math.round(n*4)}% interaction range; stronger signalling, merger and social outcomes`,
+ innovation:`+${Math.round(n*3.5)}% living-module retention; improves rare developmental outcomes`
+}[axis]||""}
 function moduleCount(effect){return state.symbionts.filter(id=>moduleById(id)?.effect===effect).length}
 function phenotype(){
  const flag=moduleCount("speed"),armour=moduleCount("armour"),detox=moduleCount("detox"),signal=moduleCount("signal");
@@ -323,7 +344,10 @@ function phenotype(){
  detection:130*(1+(derivedAxis("cognition")-1)*.08)*(gene("chemical sensing")?1.25:1)*(gene("electroreception")?1.55:1),
  foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1),
  interactionRange:90*(gene("surface exchange")?1.2:1)*(1+(derivedAxis("communication")-1)*.04)*(1+signal*.1),
- plasticity:1+(derivedAxis("adaptability")-1)*.06
+ plasticity:1+(derivedAxis("adaptability")-1)*.06,
+ innovation:1+(derivedAxis("innovation")-1)*.045,
+ communication:1+(derivedAxis("communication")-1)*.05,
+ cognition:1+(derivedAxis("cognition")-1)*.06
  };
 }
 function fit(){
@@ -333,6 +357,7 @@ function fit(){
  if(b.hazard>60)f+=gene("detoxification")?22:gene("stress response")?8:-18;
  if(gene("phenotypic plasticity"))f+=(50-f)*.25;
  if(gene("adaptive radiation"))f+=(75-f)*.35;
+ f+=(100-f)*Math.min(.22,(derivedAxis("adaptability")-1)*.018);
  return clamp(f);
 }
 function cameraScale(){const base=1/Math.pow(state.mass,.2);return clamp(base*ECO_CONFIG.viewMultiplier*(state.camera?.zoom||1),.25,.94)}
@@ -568,12 +593,12 @@ function resolveIntent(intent){
    else{const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules and inflicted ${harm} damage.`:`Fusion destabilised your membrane, causing ${harm} damage and forced retreat.`;icon="◐";good=false}
  }else if(intent==="engulf"){
    if(p>=o){const killed=p>=o+6||near.health<35;near.health-=Math.round(12*phenotype().force);addPressure("power",2.2);
-     if(killed||near.health<=0){const integrated=near.module&&Math.random()<clamp(.22+derivedAxis("innovation")*.035,0,0.72)?integrateModule(near):false;removeOrganism(near);state.energy=clamp(state.energy+(integrated?8:18));title=integrated?"LIVING ABSORPTION":"ENGULFMENT";text=integrated?"The prey survived internalisation and became a functional body module.":"The organism was enclosed, dismantled and metabolised for energy.";icon=integrated?"◉":"∨"}
+     if(killed||near.health<=0){const integrated=near.module&&Math.random()<clamp(.18+derivedAxis("innovation")*.045+derivedAxis("adaptability")*.012,0,0.82)?integrateModule(near):false;removeOrganism(near);state.energy=clamp(state.energy+(integrated?8:18));title=integrated?"LIVING ABSORPTION":"ENGULFMENT";text=integrated?"The prey survived internalisation and became a functional body module.":"The organism was enclosed, dismantled and metabolised for energy.";icon=integrated?"◉":"∨"}
      else{near.state="fleePlayer";near.stateTimer=360;title="PARTIAL ENGULFMENT";text="The target tore free, injured and chemically marked. It is now fleeing.";icon="◔";addEffect("alarm",near.x,near.y,110,1,320,"other")}
    }else{const harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The target resisted, damaged your membrane for ${harm} health and attempted to absorb your exposed structures.`;icon="◑";good=false}
  }else{
    const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
-   addEffect(type,state.x,state.y,type==="pulse"?135:105,1+derivedAxis("resilience")*.06,type==="pulse"?150:620,"player");
+   addEffect(type,state.x,state.y,(type==="pulse"?135:105)*(1+(derivedAxis("communication")-1)*.025),1+derivedAxis("resilience")*.06,(type==="pulse"?150:620)*(1+(derivedAxis("innovation")-1)*.025),"player");
    addPressure(type==="mucus"?"resilience":"innovation",1.7);title=EFFECT_TYPES[type].name;text=type==="mucus"?"A persistent adhesive field now slows and traps organisms entering this area.":type==="pulse"?"A bioelectric wave stunned nearby organisms and interrupted pursuit.":"A defensive toxin cloud now damages and deters nearby organisms.";icon=EFFECT_TYPES[type].icon;
    showEncounter(title,"deployed",Math.max(1,Math.round(derivedAxis("resilience"))),Math.max(1,Math.round(near.aggression*10)),text,true,icon,"FIELD STRENGTH","LOCAL THREAT");renderAll();save();return
  }
@@ -857,7 +882,7 @@ function renderLineage(){
  bar("lineageXpBar",state.xp/xpNeeded()*100,"var(--purple)");
  $("epochHint").textContent=state.pendingEpochs>0?`${state.pendingEpochs} major evolution${state.pendingEpochs>1?"s":""} ready`:`Next major evolution at level ${Math.ceil((state.level+1)/5)*5}`;
  $("adaptPointLabel").textContent=`${state.adaptPoints} AP`;
- $("attributeStrip").innerHTML=Object.entries(AXES).map(([k,a])=>`<div class="attribute-mini" title="${a.desc}"><button data-axis="${k}" ${state.adaptPoints?"":"disabled"}>+</button><span>${a.icon}</span><b>${a.name}</b><strong>${derivedAxis(k)}</strong></div>`).join("");
+ $("attributeStrip").innerHTML=Object.entries(AXES).map(([k,a])=>`<div class="attribute-mini" title="${a.desc}"><button data-axis="${k}" ${state.adaptPoints?"":"disabled"}>+</button><span>${a.icon}</span><b>${a.name}</b><strong>${derivedAxis(k)}</strong><small>${capacityEffects(k)}</small></div>`).join("");
  document.querySelectorAll("[data-axis]").forEach(b=>b.onclick=()=>spendAdapt(b.dataset.axis));
  const p=phenotype();$("phenotypeCards").innerHTML=[["Locomotion",`${p.speed.toFixed(2)}× movement performance`],["Mechanical force",`${p.force.toFixed(2)}× feeding and attack force`],["Stress defence",`${p.defense.toFixed(2)}× injury buffering`],["Ecological fit",`${Math.round(fit())}% in ${BIOMES[state.biome].name}`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
  $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("");
@@ -889,12 +914,40 @@ function renderEcology(){
 function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
 function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
-function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;const m=moduleById(best.module);box.innerHTML=`<b style="color:${best.color}">${m?m.icon+" "+m.name:"UNSPECIALISED ORGANISM"}</b><br>mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)}<br>${best.aggression>.5?"reactive chemistry":"cautious chemistry"} · ${best.state}${m?"<br>potential living module: "+m.effect:""}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
+function inspectionTier(){
+ const c=derivedAxis("cognition"),comm=derivedAxis("communication"),sens=(gene("chemical sensing")?1:0)+(gene("threat model")?1:0)+(gene("electroreception")?1:0);
+ return clamp(Math.floor((c+comm*.35)/2.4)+sens,1,5)
+}
+function threatAssessment(o){
+ const p=phenotype(),distance=Math.hypot(o.x-state.x,o.y-state.y),ourCombat=p.force*p.defense*state.mass*(state.health/100),theirCombat=(.65+o.aggression*.8)*o.mass*(o.health/100)*1.35;
+ const escape=p.speed/(.7+o.speed*.55);const ratio=ourCombat/Math.max(.1,theirCombat);
+ if(ratio>2.15)return{label:"EASY TARGET",className:"easy",confidence:Math.min(98,65+inspectionTier()*6)};
+ if(ratio>1.15)return{label:escape>1.15?"FAVOURABLE":"MANAGEABLE",className:"favourable",confidence:Math.min(94,58+inspectionTier()*6)};
+ if(ratio>.7)return{label:"RISKY",className:"risky",confidence:Math.min(90,52+inspectionTier()*6)};
+ if(ratio>.38)return{label:escape>1.2?"AVOIDABLE THREAT":"SEVERE THREAT",className:"severe",confidence:Math.min(88,48+inspectionTier()*6)};
+ return{label:"OVERWHELMING",className:"impossible",confidence:Math.min(85,45+inspectionTier()*6)}
+}
+function organismLabel(o){const m=moduleById(o.module),role=o.role||organismRole(o);return m?`${m.icon} ${m.name}`:`${role.toUpperCase()} ORGANISM`}
+function inspectAt(wx,wy,clientX=null,clientY=null){
+ let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}
+ const box=$("inspect");if(!best||d>=72/cameraScale()){box.hidden=true;return false}
+ const tier=inspectionTier(),assessment=threatAssessment(best),m=moduleById(best.module),distance=Math.round(Math.hypot(best.x-state.x,best.y-state.y));
+ const lines=[`<div class="inspect-head"><b style="color:${best.color}">${organismLabel(best)}</b><span class="threat ${assessment.className}">${assessment.label}</span></div>`,`<small>biological readout ${tier}/5 · confidence ${assessment.confidence}%</small>`];
+ if(tier>=1)lines.push(`<div>relative size: ${best.mass<state.mass*.7?"smaller":best.mass>state.mass*1.35?"larger":"similar"} · ${distance} units away</div>`);
+ if(tier>=2)lines.push(`<div>condition: ${best.health>75?"vigorous":best.health>40?"impaired":"critically weakened"} · behaviour: ${best.state.replaceAll("Other","")}</div>`);
+ if(tier>=3)lines.push(`<div>mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)} · aggression ${Math.round(best.aggression*100)}%</div>`);
+ if(tier>=4)lines.push(`<div>role: ${best.role||organismRole(best)} · speed ${best.speed.toFixed(2)} · chemistry ${best.aggression>.6?"highly reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
+ if(tier>=5)lines.push(`<div>${m?`living module: ${m.name} (${m.effect})`:"no stable module detected"}<br>predicted outcome: ${assessment.label.toLowerCase()} under current health and mass</div>`);
+ else if(m&&tier>=3)lines.push(`<div>unresolved specialised organ detected</div>`);
+ box.innerHTML=lines.join("");box.hidden=false;
+ const rect=canvas.getBoundingClientRect();if(clientX!==null){box.style.left=clamp(clientX-rect.left+10,6,rect.width-Math.min(245,rect.width*.72)-6)+"px";box.style.top=clamp(clientY-rect.top-12,8,rect.height-125)+"px";box.style.right="auto"}
+ clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,6000);return true
+}
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(cameraCenter().x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(cameraCenter().y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
 let activePointer=null,longTimer=null,startPoint=null,moved=false;
-function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);movementTarget(p.x,p.y);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y)},560)}
-function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;const p=worldPoint(e);movementTarget(p.x,p.y)}
-function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);canvas.releasePointerCapture?.(e.pointerId);activePointer=null}
+function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y,e.clientX,e.clientY)},560)}
+function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;if(moved){const p=worldPoint(e);movementTarget(p.x,p.y)}}
+function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);if(!moved){const p=worldPoint(e);if(!inspectAt(p.x,p.y,e.clientX,e.clientY))movementTarget(p.x,p.y)}canvas.releasePointerCapture?.(e.pointerId);activePointer=null}
 function applyBuildIdentity(){
  document.title=`EVOLVA v${BUILD_VERSION}`;
  document.querySelectorAll("[data-build-version]").forEach(el=>el.textContent=`v${BUILD_VERSION}`);
@@ -902,7 +955,7 @@ function applyBuildIdentity(){
  const meta=document.querySelector('meta[name="evolva-build"]');if(meta)meta.content=BUILD_VERSION
 }
 function bind(){
- atlasCanvas=$("atlasCanvas");atlasCtx=atlasCanvas.getContext("2d");
+ atlasCanvas=$("atlasCanvas");atlasCtx=atlasCanvas.getContext("2d");resizeAtlasCanvas();window.addEventListener("resize",()=>{resizeAtlasCanvas();atlasDirty=true});
  atlasCanvas.addEventListener("pointerdown",atlasPointerDown,{passive:false});
  atlasCanvas.addEventListener("pointermove",atlasPointerMove,{passive:false});
  atlasCanvas.addEventListener("pointerup",atlasPointerUp,{passive:false});
