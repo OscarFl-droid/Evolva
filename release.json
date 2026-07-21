@@ -1,10 +1,10 @@
 {
   "product": "EVOLVA",
-  "version": "9.0.3",
-  "cache": "evolva-v9-0-3",
-  "saveKey": "evolva-save-v9-0-3",
+  "version": "9.0.4",
+  "cache": "evolva-v9-0-4",
+  "saveKey": "evolva-save-v9-0-4",
   "engine": "fixed-timestep-system-engine",
   "simulationHz": 60,
   "legacySaveFloor": "7.0.0",
-  "name": "Readable Atlas & Ecological Outcomes"
+  "name": "Mobile Control & Defensive Ecology"
 }
