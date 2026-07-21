@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="8.2.1",BUILD_CACHE="evolva-v8-2-1";
+export const BUILD_VERSION="8.2.2",BUILD_CACHE="evolva-v8-2-2";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v8-2-1",LEGACY_SAVE_KEY="evolva-save-v8-2-0",OLDER_SAVE_KEYS=["evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v8-2-2",LEGACY_SAVE_KEY="evolva-save-v8-2-1",OLDER_SAVE_KEYS=["evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -933,27 +933,37 @@ function threatAssessment(o){
  return{label:"OVERWHELMING",className:"impossible",confidence:Math.min(85,45+inspectionTier()*6)}
 }
 function organismLabel(o){const m=moduleById(o.module),role=o.role||organismRole(o);return m?`${m.icon} ${m.name}`:`${role.toUpperCase()} ORGANISM`}
-function inspectAt(wx,wy,clientX=null,clientY=null){
+function inspectionHitRadius(o,wideScan=false){
+ const body=Math.max(10,radius(o.mass)*.72);
+ return (body+(wideScan?24:7))/cameraScale()
+}
+function inspectAt(wx,wy,clientX=null,clientY=null,wideScan=false){
  let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}
- const box=$("inspect");if(!best||d>=72/cameraScale()){box.hidden=true;return false}
+ const box=$("inspect");if(!best||d>=inspectionHitRadius(best,wideScan)){box.hidden=true;return false}
  const tier=inspectionTier(),assessment=threatAssessment(best),m=moduleById(best.module),distance=Math.round(Math.hypot(best.x-state.x,best.y-state.y));
- const lines=[`<div class="inspect-head"><b style="color:${best.color}">${organismLabel(best)}</b><span class="threat ${assessment.className}">${assessment.label}</span></div>`,`<small>biological readout ${tier}/5 · confidence ${assessment.confidence}%</small>`];
- if(tier>=1)lines.push(`<div>relative size: ${best.mass<state.mass*.7?"smaller":best.mass>state.mass*1.35?"larger":"similar"} · ${distance} units away</div>`);
- if(tier>=2)lines.push(`<div>condition: ${best.health>75?"vigorous":best.health>40?"impaired":"critically weakened"} · behaviour: ${String(best.state||"unknown").replaceAll("Other","")}</div>`);
- if(tier>=3)lines.push(`<div>mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)} · aggression ${Math.round(best.aggression*100)}%</div>`);
- if(tier>=4)lines.push(`<div>role: ${best.role||organismRole(best)} · speed ${best.speed.toFixed(2)} · chemistry ${best.aggression>.6?"highly reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
- if(tier>=5)lines.push(`<div>${m?`living module: ${m.name} (${m.effect})`:"no stable module detected"}<br>predicted outcome: ${assessment.label.toLowerCase()} under current health and mass</div>`);
- else if(m&&tier>=3)lines.push(`<div>unresolved specialised organ detected</div>`);
+ const size=best.mass<state.mass*.7?"smaller":best.mass>state.mass*1.35?"larger":"similar";
+ const condition=best.health>75?"vigorous":best.health>40?"impaired":"critical";
+ const behaviour=String(best.state||"unknown").replaceAll("Other","");
+ const lines=[`<div class="inspect-head"><b style="color:${best.color}">${organismLabel(best)}</b><span class="threat ${assessment.className}">${assessment.label}</span></div>`,`<small>readout ${tier}/5 · confidence ${assessment.confidence}%</small>`];
+ lines.push(`<div class="inspect-row">${size} · ${distance} away${tier>=2?` · ${condition}`:""}</div>`);
+ if(tier>=2)lines.push(`<div class="inspect-row">${behaviour}${tier>=3?` · mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)}`:""}</div>`);
+ if(tier>=4)lines.push(`<div class="inspect-row">${best.role||organismRole(best)} · speed ${best.speed.toFixed(2)} · ${best.aggression>.6?"reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
+ if(tier>=5)lines.push(`<div class="inspect-row">${m?m.name:"no stable module"} · predicted ${assessment.label.toLowerCase()}</div>`);
+ else if(m&&tier>=3)lines.push(`<div class="inspect-row">specialised organ detected</div>`);
  box.innerHTML=lines.join("");box.hidden=false;
- const rect=canvas.getBoundingClientRect();if(clientX!==null){const bw=box.offsetWidth||Math.min(245,rect.width*.72),bh=box.offsetHeight||125;box.style.left=clamp(clientX-rect.left+10,6,Math.max(6,rect.width-bw-6))+"px";box.style.top=clamp(clientY-rect.top-12,8,Math.max(8,rect.height-bh-8))+"px";box.style.right="auto"}
- clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,6000);return true
+ const rect=canvas.getBoundingClientRect(),bw=box.offsetWidth||176,bh=box.offsetHeight||80;
+ const targetScreenX=clientX===null?rect.left+rect.width/2:clientX;
+ const placeLeft=targetScreenX>rect.left+rect.width*.56;
+ box.style.left=placeLeft?"7px":"auto";box.style.right=placeLeft?"auto":"7px";box.style.top="34px";
+ if(bh>rect.height*.34)box.style.maxHeight=Math.max(68,Math.floor(rect.height*.3))+"px";
+ clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500);return true
 }
 function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(cameraCenter().x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(cameraCenter().y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
 let activePointer=null,longTimer=null,startPoint=null,moved=false;
-function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y,e.clientX,e.clientY)},560)}
+function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y,e.clientX,e.clientY,true)},560)}
 function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;if(moved){const p=worldPoint(e);movementTarget(p.x,p.y)}}
 function resetWorldPointer(e){clearTimeout(longTimer);longTimer=null;try{canvas.releasePointerCapture?.(e.pointerId)}catch{}activePointer=null;startPoint=null;moved=false}
-function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);if(!moved){const p=worldPoint(e);if(!inspectAt(p.x,p.y,e.clientX,e.clientY))movementTarget(p.x,p.y)}resetWorldPointer(e)}
+function pointerEnd(e){if(activePointer!==e.pointerId)return;e.preventDefault();clearTimeout(longTimer);if(!moved){const p=worldPoint(e);if(!inspectAt(p.x,p.y,e.clientX,e.clientY,false))movementTarget(p.x,p.y)}resetWorldPointer(e)}
 function pointerCancel(e){if(activePointer!==e.pointerId)return;e.preventDefault();resetWorldPointer(e)}
 function applyBuildIdentity(){
  document.title=`EVOLVA v${BUILD_VERSION}`;
