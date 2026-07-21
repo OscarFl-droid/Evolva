@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="9.0.4",BUILD_CACHE="evolva-v9-0-4";
+export const BUILD_VERSION="9.0.5",BUILD_CACHE="evolva-v9-0-5";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v9-0-4",LEGACY_SAVE_KEY="evolva-save-v9-0-3",OLDER_SAVE_KEYS=["evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v9-0-5",LEGACY_SAVE_KEY="evolva-save-v9-0-4",OLDER_SAVE_KEYS=["evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -638,6 +638,12 @@ function nearbyOrganism(){
  return [...state.organisms].sort((a,b)=>Math.hypot(a.x-state.x,a.y-state.y)-Math.hypot(b.x-state.x,b.y-state.y))[0]
 }
 function d20(){return Math.floor(Math.random()*20)+1}
+function spendEnergy(requested){
+ const before=state.energy;state.energy=clamp(state.energy-Math.max(0,requested));return Math.round(before-state.energy)
+}
+function restoreHealth(requested){
+ const before=state.health;state.health=clamp(state.health+Math.max(0,requested));return Math.round(state.health-before)
+}
 function encounterModifier(axis){return Math.floor((derivedAxis(axis)-1)/2)}
 function mergeSupplyType(o){
  const moduleAxis=moduleById(o?.module)?.axis;
@@ -712,11 +718,11 @@ function resolveIntent(intent){
    }else{const harm=Math.round((3+near.aggression*5)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`Recognition failed. You lost ${harm} health and retreated. ${applyOrganismDefense(near)}`;icon="†";good=false}
  }else if(intent==="merge"){state.lineageActions.mergers++;
    const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
-   if(p+compatibility>=o+7){const energyCost=Math.round(clamp(9+near.mass*2,10,18)),supplies=addMergeSupplies(near,3);state.energy=clamp(state.energy-energyCost);integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;addXP(10,"Stable endosymbiosis succeeded");title="STABLE ENDOSYMBIOSIS";text=`Fusion required ${energyCost} energy. The organism persists as a living module, while transferable reserves added ${supplies} to your pack.`;icon="◉"}
-   else if(p+compatibility>=o+1){const energyCost=7,supplies=addMergeSupplies(near,1);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-3);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;addXP(4,"Transient biological exchange succeeded");title="TRANSIENT FUSION";text=`The membranes separated after exchanging cytoplasm. You spent ${energyCost} energy and retained ${supplies} in your pack.`;icon="∞"}
+   if(p+compatibility>=o+7){const requestedEnergy=Math.round(clamp(9+near.mass*2,10,18)),energySpent=spendEnergy(requestedEnergy),supplies=addMergeSupplies(near,3);integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;addXP(10,"Stable endosymbiosis succeeded");title="STABLE ENDOSYMBIOSIS";text=`Fusion consumed ${energySpent} energy. The organism persists as a living module, while transferable reserves added ${supplies} to your pack.`;icon="◉"}
+   else if(p+compatibility>=o+1){const energySpent=spendEnergy(7),supplies=addMergeSupplies(near,1);state.health=clamp(state.health-3);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;addXP(4,"Transient biological exchange succeeded");title="TRANSIENT FUSION";text=`The membranes separated after exchanging cytoplasm. You spent ${energySpent} energy and retained ${supplies} in your pack.`;icon="∞"}
    else{const energyCost=5;state.energy=clamp(state.energy-energyCost);const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=(stolen?`The larger organism reversed the membrane flow, captured one of your living modules, cost ${energyCost} energy and inflicted ${harm} damage.`:`Fusion cost ${energyCost} energy, destabilised your membrane and caused ${harm} damage.`)+` ${applyOrganismDefense(near)}`;icon="◐";good=false}
  }else if(intent==="engulf"){state.lineageActions.engulfs++;
-   if(p>=o){const energyCost=Math.round(clamp(5+near.mass*2,6,14)),healthGain=Math.round(clamp(7+near.mass*7,8,28));state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health+healthGain);addPressure("power",2.2);state.lineageActions.hunts++;removeOrganism(near);state.ecosystem.hunts++;addXP(Math.round(7+near.mass*2),"Complete engulfment succeeded");title="COMPLETE ENGULFMENT";text=`The organism was enclosed and digested. Biomass restored ${healthGain} health, while capture and digestion consumed ${energyCost} energy.`;icon="∨"
+   if(p>=o){const requestedEnergy=Math.round(clamp(5+near.mass*2,6,14)),requestedHealth=Math.round(clamp(7+near.mass*7,8,28)),energySpent=spendEnergy(requestedEnergy),healthRestored=restoreHealth(requestedHealth);addPressure("power",2.2);state.lineageActions.hunts++;removeOrganism(near);state.ecosystem.hunts++;addXP(Math.round(7+near.mass*2),"Complete engulfment succeeded");title="COMPLETE ENGULFMENT";text=`The organism was enclosed and digested. Biomass restored ${healthRestored} health, while capture and digestion consumed ${energySpent} energy.`;icon="∨"
    }else{const energyCost=4,harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The failed capture cost ${energyCost} energy. The target resisted and damaged your membrane for ${harm} health. ${applyOrganismDefense(near)}`;icon="◑";good=false}
  }else{
    const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
@@ -1027,7 +1033,7 @@ function renderEcology(){
   ["Succession",`${state.patches.filter(p=>p.biome===state.biome).length} habitat patches · ${state.carcasses.length} carcasses`],
   ["Niche fit",`${Math.round(fit())}% compatibility`]
  ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
- $("symbiontCards").innerHTML=state.symbionts.length?state.symbionts.map((id,i)=>{const m=moduleById(id);return`<div class="module-card"><i style="color:${m.color}">${m.icon}</i><b>${m.name}</b>${m.desc}<br>Visible module ${i+1} · biases ${AXES[m.axis].name}</div>`}).join(""):`<div class="card"><b>No integrated organisms</b>Successful merger or living engulfment can add visible functional modules.</div>`;
+ $("symbiontCards").innerHTML=state.symbionts.length?state.symbionts.map((id,i)=>{const m=moduleById(id);return`<div class="module-card"><i style="color:${m.color}">${m.icon}</i><b>${m.name}</b>${m.desc}<br>Visible module ${i+1} · biases ${AXES[m.axis].name}</div>`}).join(""):`<div class="card"><b>No integrated organisms</b>Successful stable merger can add visible functional modules.</div>`;
  const here=state.niches.filter(n=>n.biome===state.biome);
  $("nicheCards").innerHTML=here.length?here.sort((a,b)=>b.strength-a.strength).slice(0,6).map(n=>`<div class="niche-card"><b>${n.type}</b>${Math.round(n.strength)}% conditioned · ${n.rests} rest deposits<div class="niche-meter"><em style="width:${n.strength}%"></em></div></div>`).join(""):`<div class="card"><b>No conditioned niche</b>Rest repeatedly in one location to create a persistent healing environment.</div>`
 }
@@ -1065,7 +1071,7 @@ function inspectAt(wx,wy,clientX=null,clientY=null,wideScan=false){
  if(tier>=4)lines.push(`<div class="inspect-row">${best.role||organismRole(best)} · ${organismDefense(best).name.toLowerCase()} · ${best.aggression>.6?"reactive":best.aggression>.35?"conditional":"cautious"}</div>`);
  if(tier>=5)lines.push(`<div class="inspect-row">${m?m.name:"no stable module"} · predicted ${assessment.label.toLowerCase()}</div>`);
  else if(m&&tier>=3)lines.push(`<div class="inspect-row">specialised organ detected</div>`);
- box.innerHTML=lines.join("");box.hidden=false;if(tileBox)tileBox.hidden=true;
+ box.style.maxHeight="";box.innerHTML=lines.join("");box.hidden=false;if(tileBox)tileBox.hidden=true;
  const rect=canvas.getBoundingClientRect(),bw=box.offsetWidth||176,bh=box.offsetHeight||80;
  const targetScreenX=clientX===null?rect.left+rect.width/2:clientX;
  const placeLeft=targetScreenX>rect.left+rect.width*.56;
@@ -1119,7 +1125,7 @@ function load(){
   state.level=Math.max(1,Math.floor(Number(state.level)||1));state.mass=Math.max(.2,Number(state.mass)||1);state.generation=Math.max(1,Math.floor(Number(state.generation)||1));
   state.energy=clamp(Number(state.energy)||0);state.water=clamp(Number(state.water)||0);state.health=clamp(Number(state.health)||0);
   state.resources=Array.isArray(x.resources)?x.resources.filter(r=>r&&FOOD[r.type]&&Number.isFinite(r.x)&&Number.isFinite(r.y)).map(r=>Object.assign({phase:0},r)):[];
-  state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
+  state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,defense:ORGANISM_DEFENSES[o.defense]?o.defense:"mucus",stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
   state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];
   state.effects=Array.isArray(x.effects)?x.effects.filter(e=>e&&EFFECT_TYPES[e.type]&&[e.x,e.y,e.radius,e.life].every(Number.isFinite)).map(e=>Object.assign({power:1,owner:"player",phase:0},e)):[];
   state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
