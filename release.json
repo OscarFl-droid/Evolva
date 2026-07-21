@@ -1,10 +1,10 @@
 {
   "product": "EVOLVA",
-  "version": "8.2.0",
-  "cache": "evolva-v8-2-0",
-  "saveKey": "evolva-save-v8-2-0",
+  "version": "8.2.1",
+  "cache": "evolva-v8-2-1",
+  "saveKey": "evolva-save-v8-2-1",
   "engine": "fixed-timestep-system-engine",
   "simulationHz": 60,
   "legacySaveFloor": "7.0.0",
-  "name": "Phenotype Intelligence"
+  "name": "Phenotype Intelligence \u2014 Stability Patch"
 }
