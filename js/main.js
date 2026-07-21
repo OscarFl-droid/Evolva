@@ -1,6 +1,6 @@
 "use strict";
-import {EvolvaEngine} from "./engine.js";
-import {BUILD_VERSION,createGameRuntime} from "./game.js";
+import {EvolvaEngine} from "./engine.js?v=8.1.0";
+import {BUILD_VERSION,createGameRuntime} from "./game.js?v=8.1.0";
 
 const engine=new EvolvaEngine({stepHz:60,maxCatchUpSteps:5});
 const game=createGameRuntime(engine);

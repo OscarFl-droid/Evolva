@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="8.0.0",BUILD_CACHE="evolva-v8-0-0";
+export const BUILD_VERSION="8.1.0",BUILD_CACHE="evolva-v8-1-0";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v8-0-0",LEGACY_SAVE_KEY="evolva-save-v7-5-1",OLDER_SAVE_KEYS=["evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=2200,XP_BASE=100;
+const SAVE_KEY="evolva-save-v8-1-0",LEGACY_SAVE_KEY="evolva-save-v8-0-0",OLDER_SAVE_KEYS=["evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -255,6 +255,23 @@ function drawAtlas(now=performance.now()){
  }
  c.restore()
 }
+
+const ECO_CONFIG={targetOrganisms:30,maxOrganisms:44,targetFood:82,maxCarcasses:36,maxPatches:34,viewMultiplier:.82};
+const WEATHER=[
+ {id:"calm",name:"CALM CURRENT",icon:"≈",duration:[1800,3200],light:1,moisture:1,drift:.18},
+ {id:"rain",name:"NUTRIENT RAIN",icon:"⋮",duration:[1100,1900],light:.82,moisture:1.35,drift:.35},
+ {id:"bloom",name:"MICROBIAL BLOOM",icon:"✦",duration:[900,1600],light:1.08,moisture:1.1,drift:.12},
+ {id:"heat",name:"THERMAL SURGE",icon:"≋",duration:[850,1450],light:1.18,moisture:.66,drift:.24},
+ {id:"spores",name:"SPORE FRONT",icon:"°",duration:[950,1750],light:.9,moisture:1.05,drift:.55}
+];
+function makeWeather(id="calm"){const w=WEATHER.find(x=>x.id===id)||WEATHER[0];return{id:w.id,timer:Math.round(rand(...w.duration)),phase:rand(0,6.28),windX:rand(-1,1),windY:rand(-1,1)}}
+function weatherDef(){return WEATHER.find(w=>w.id===state.weather?.id)||WEATHER[0]}
+function makePatch(type,x,y,strength=10){return{id:Math.random().toString(36).slice(2),type,x,y,strength,age:0,biome:state.biome,phase:rand(0,6.28)}}
+function patchAt(x,y,range=105){return state.patches.find(p=>p.biome===state.biome&&Math.hypot(p.x-x,p.y-y)<range)}
+function addPatch(type,x,y,amount=8){let p=patchAt(x,y);if(!p){if(state.patches.length>=ECO_CONFIG.maxPatches)state.patches.sort((a,b)=>a.age-b.age).pop();p=makePatch(type,x,y,0);state.patches.push(p)}p.type=type;p.strength=clamp(p.strength+amount,0,100);p.age=0;return p}
+function makeCarcass(o,cause="natural"){return{id:Math.random().toString(36).slice(2),x:o.x,y:o.y,mass:Math.max(.2,o.mass*.75),nutrition:Math.max(8,o.mass*18),age:0,biome:state.biome,cause,color:o.color,module:o.module||null,phase:rand(0,6.28)}}
+function killOrganism(o,cause="ecological competition"){if(!o||!state.organisms.includes(o))return;state.carcasses.push(makeCarcass(o,cause));if(state.carcasses.length>ECO_CONFIG.maxCarcasses)state.carcasses.shift();state.organisms=state.organisms.filter(x=>x!==o);burst(o.x,o.y,o.color,14,2);addPatch("detritus",o.x,o.y,6)}
+function organismRole(o){if(o.module==="phototroph")return"producer";if(o.aggression>.57&&o.mass>1)return"predator";if(o.module==="detoxer")return"decomposer";if(o.curiosity>.68)return"social";return"grazer"}
 function baseAxes(){const a={};Object.keys(AXES).forEach(k=>a[k]=1);return a}
 function basePressures(){const a={};Object.keys(AXES).forEach(k=>a[k]=0);return a}
 function fresh(){
@@ -267,7 +284,7 @@ function fresh(){
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
  atlasView:{x:430,y:360,zoom:1},
  dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,interactionTarget:null,lastTileKey:"",
- symbionts:[],effects:[],niches:[],particles:[],restAnchor:null,buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
+ symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -318,7 +335,9 @@ function fit(){
  if(gene("adaptive radiation"))f+=(75-f)*.35;
  return clamp(f);
 }
-function cameraScale(){return clamp(1/Math.pow(state.mass,.2),.32,1.15)}
+function cameraScale(){const base=1/Math.pow(state.mass,.2);return clamp(base*ECO_CONFIG.viewMultiplier*(state.camera?.zoom||1),.25,.94)}
+function cameraCenter(){return{x:state.x+(state.camera?.lookX||0),y:state.y+(state.camera?.lookY||0)}}
+function focusEvent(x,y,duration=180){if(!state.camera)return;state.camera.eventX=x;state.camera.eventY=y;state.camera.eventTimer=Math.max(state.camera.eventTimer||0,duration)}
 function radius(m=state.mass){return 10+Math.log2(m+1)*5}
 
 function terrainType(gx,gy){
@@ -350,10 +369,11 @@ function weightedFood(){
 function spawnFood(n=1){for(let i=0;i<n;i++)state.resources.push({x:rand(30,WORLD-30),y:rand(30,WORLD-30),type:weightedFood(),phase:rand(0,6.28)})}
 function makeOrganism(){
  const mass=rand(.35,Math.max(2.2,state.mass*1.8));
- return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"]),module:Math.random()<.72?randomModule().id:null,stuck:0,stunned:0,flash:0};
+ return{id:Math.random().toString(36).slice(2),x:rand(30,WORLD-30),y:rand(30,WORLD-30),vx:0,vy:0,mass,energy:rand(45,95),health:rand(60,100),hunger:rand(5,70),fear:rand(.1,.9),curiosity:rand(.1,.9),aggression:rand(.08,.72),state:"wander",target:null,stateTimer:0,phase:rand(0,6.28),color:choice(["#7de0ff","#8cff9c","#ffd66a","#ff7777","#dba0ff"]),module:Math.random()<.72?randomModule().id:null,stuck:0,stunned:0,flash:0,age:rand(0,1800),fertility:rand(.2,1),cooldown:rand(0,700),lineage:Math.floor(rand(1,9999)),role:null,school:null,signal:0};
 }
-function populate(){state.organisms=[];for(let i=0;i<18;i++)state.organisms.push(makeOrganism())}
+function populate(){state.organisms=[];for(let i=0;i<ECO_CONFIG.targetOrganisms;i++)state.organisms.push(makeOrganism())}
 function nearestResource(x,y){let best=null,d=Infinity;for(const r of state.resources){const q=Math.hypot(r.x-x,r.y-y);if(q<d){d=q;best=r}}return best?{o:best,d}:null}
+function nearestCarcass(x,y){let best=null,d=Infinity;for(const c of state.carcasses){if(c.biome!==state.biome)continue;const q=Math.hypot(c.x-x,c.y-y);if(q<d){d=q;best=c}}return best?{o:best,d}:null}
 function nearestOrganism(o,filter){let best=null,d=Infinity;for(const q of state.organisms){if(q===o||!filter(q))continue;const z=Math.hypot(q.x-o.x,q.y-o.y);if(z<d){d=z;best=q}}return best?{o:best,d}:null}
 
 function chooseIntent(o){
@@ -365,20 +385,30 @@ function chooseIntent(o){
  if(hungry&&pd<250&&reward*.8+o.aggression*.35+o.hunger/140-injuryRisk*.55>.48){o.state="huntPlayer";o.stateTimer=220;return}
  if(pd<180&&o.curiosity>.62){o.state="inspectPlayer";o.stateTimer=190;return}
  if(o.energy<18||o.health<28){o.state="rest";o.target=null;o.stateTimer=rand(180,320);return}
+ const corpse=nearestCarcass(o.x,o.y),role=o.role||organismRole(o);o.role=role;
+ if(o.hunger>38&&corpse&&corpse.d<330&&role!=="producer"){o.state="scavenge";o.target=corpse.o.id;o.stateTimer=300;return}
+ const partner=nearestOrganism(o,q=>q.health>45&&q.module&&q.module!==o.module&&q.curiosity>.45&&Math.abs(q.mass-o.mass)<Math.max(.5,o.mass*.7));
+ if(o.curiosity>.72&&o.energy>58&&partner&&partner.d<220&&Math.random()<.16){o.state="mergeOther";o.target=partner.o.id;o.stateTimer=240;return}
+ const mate=nearestOrganism(o,q=>q.health>55&&q.energy>55&&q.cooldown<=0&&Math.abs(q.mass-o.mass)<Math.max(.35,o.mass*.45));
+ if(o.energy>72&&o.health>65&&o.cooldown<=0&&mate&&mate.d<250&&Math.random()<.32){o.state="court";o.target=mate.o.id;o.stateTimer=260;return}
+ if((role==="social"||o.school)&&Math.random()<.35){const peer=nearestOrganism(o,q=>(q.school&&q.school===o.school)||(!o.school&&q.role==="social"));if(peer&&peer.d<340){o.state="school";o.target=peer.o.id;o.stateTimer=260;return}}
  const food=nearestResource(o.x,o.y);
- if(o.hunger>35&&food&&food.d<260){o.state="forage";o.target=state.resources.indexOf(food.o);o.stateTimer=260;return}
+ if(o.hunger>35&&food&&food.d<300){o.state="forage";o.target=state.resources.indexOf(food.o);o.stateTimer=260;return}
+ if(role==="producer"&&Math.random()<.35){o.state="settle";o.target=null;o.stateTimer=rand(260,520);return}
  o.state="wander";o.target=null;o.stateTimer=rand(180,420);
 }
 function updateOrganism(o){
  if(o.flash>0)o.flash--;if(o.stunned>0){o.stunned--;o.vx*=.7;o.vy*=.7;return}if(o.stuck>0)o.stuck--;
- o.stateTimer--;o.phase+=.025;if(state.tick%120===0){o.hunger=clamp(o.hunger+1.5);o.energy=clamp(o.energy-.7)}
+ o.stateTimer--;o.phase+=.025;o.age++;o.cooldown=Math.max(0,(o.cooldown||0)-1);o.signal=Math.max(0,(o.signal||0)-1);if(state.tick%120===0){o.hunger=clamp(o.hunger+1.5);o.energy=clamp(o.energy-.7);if(o.age>7200)o.health-=.8}
  if(o.stateTimer<=0)chooseIntent(o);
  let tx=0,ty=0,pdx=state.x-o.x,pdy=state.y-o.y,pd=Math.hypot(pdx,pdy)||1;
  if(o.state==="huntPlayer"||o.state==="inspectPlayer"){tx=pdx/pd;ty=pdy/pd}
  else if(o.state==="fleePlayer"){tx=-pdx/pd;ty=-pdy/pd}
  else if(o.state==="wander"){tx=Math.sin(o.phase*.8);ty=Math.cos(o.phase*.57)}
- else if(o.state==="rest"){tx=0;ty=0;o.energy=clamp(o.energy+.025);o.health=clamp(o.health+.012)}
+ else if(o.state==="rest"||o.state==="settle"){tx=0;ty=0;o.energy=clamp(o.energy+(o.state==="settle"?.04:.025));o.health=clamp(o.health+.012);if(o.state==="settle"&&state.tick%180===0)addPatch("microbial",o.x,o.y,1.2);if(o.state==="rest"&&state.tick%420===0)addPatch(o.module==="phototroph"?"microbial":"conditioned",o.x,o.y,.5)}
  else if(o.state==="forage"){const r=state.resources[o.target];if(r){const d=Math.hypot(r.x-o.x,r.y-o.y)||1;tx=(r.x-o.x)/d;ty=(r.y-o.y)/d}else o.stateTimer=0}
+ else if(o.state==="scavenge"){const c=state.carcasses.find(x=>x.id===o.target);if(c){const d=Math.hypot(c.x-o.x,c.y-o.y)||1;tx=(c.x-o.x)/d;ty=(c.y-o.y)/d}else o.stateTimer=0}
+ else if(o.state==="court"||o.state==="school"||o.state==="mergeOther"){const q=state.organisms.find(x=>x.id===o.target);if(q){const d=Math.hypot(q.x-o.x,q.y-o.y)||1;tx=(q.x-o.x)/d;ty=(q.y-o.y)/d;if(o.state==="school"&&d<55){tx+=(q.vx-o.vx)*.15;ty+=(q.vy-o.vy)*.15}}else o.stateTimer=0}
  else{const q=state.organisms.find(x=>x.id===o.target);if(q){const d=Math.hypot(q.x-o.x,q.y-o.y)||1,s=o.state==="fleeOther"?-1:1;tx=(q.x-o.x)/d*s;ty=(q.y-o.y)/d*s}else o.stateTimer=0}
  const speed=Math.pow(o.mass,-.14)*(o.stuck>0?.28:1);o.vx=(o.vx+tx*.05*speed)*.92;o.vy=(o.vy+ty*.05*speed)*.92;o.x=clamp(o.x+o.vx,20,WORLD-20);o.y=clamp(o.y+o.vy,20,WORLD-20);
  if(o.state==="forage"){
@@ -392,12 +422,32 @@ function updateOrganism(o){
  if(o.state==="huntOther"){
    const q=state.organisms.find(x=>x.id===o.target);
    if(q&&Math.hypot(q.x-o.x,q.y-o.y)<radius(o.mass)+radius(q.mass)*.6){
-     q.health-=12+o.mass/q.mass*4;o.energy=clamp(o.energy+7);o.hunger=clamp(o.hunger-18);o.stateTimer=0;
-     if(q.health<=0)state.organisms=state.organisms.filter(x=>x!==q);
+     q.health-=12+o.mass/q.mass*4;q.flash=8;o.energy=clamp(o.energy+7);o.hunger=clamp(o.hunger-18);o.stateTimer=0;state.ecosystem.hunts++;focusEvent((o.x+q.x)/2,(o.y+q.y)/2,130);
+     if(q.health>0&&Math.random()<.24){const defensive=q.module==="electrogen"?"pulse":q.module==="detoxer"?"toxin":"mucus";addEffect(defensive,q.x,q.y,defensive==="pulse"?105:78,.7,defensive==="pulse"?110:320,"other");o.stuck=defensive==="mucus"?24:o.stuck;o.stunned=defensive==="pulse"?20:o.stunned;if(defensive==="toxin")o.health-=4;q.state="fleeOther";q.target=o.id;q.stateTimer=200}
+     if(q.health<=0){killOrganism(q,"predation");state.ecosystem.deaths++}
    }
  }
+ if(o.state==="scavenge"){
+   const c=state.carcasses.find(x=>x.id===o.target);
+   if(c&&Math.hypot(c.x-o.x,c.y-o.y)<radius(o.mass)+10){const bite=Math.min(c.nutrition,8+o.mass*3);c.nutrition-=bite;o.energy=clamp(o.energy+bite);o.hunger=clamp(o.hunger-bite*1.4);o.stateTimer=0;burst(c.x,c.y,"#d7a66b",4,1);if(c.nutrition<=0)state.carcasses=state.carcasses.filter(x=>x!==c)}
+ }
+ if(o.state==="mergeOther"){
+   const q=state.organisms.find(x=>x.id===o.target);
+   if(q&&Math.hypot(q.x-o.x,q.y-o.y)<radius(o.mass)+radius(q.mass)+7){
+     const success=(o.curiosity+q.curiosity+Math.random())>(o.aggression+q.aggression+.65);
+     if(success){const host=o.mass>=q.mass?o:q,guest=host===o?q:o;host.mass=clamp(host.mass+guest.mass*.22,.25,8);if(!host.module&&guest.module)host.module=guest.module;else if(host.module&&guest.module&&Math.random()<.4)host.color=guest.color;removeOrganism(guest);state.ecosystem.mergers++;addPatch("nursery",host.x,host.y,4);burst(host.x,host.y,moduleById(host.module)?.color||"#dba0ff",20,2.3);focusEvent(host.x,host.y,190)}
+     else{addEffect("alarm",(o.x+q.x)/2,(o.y+q.y)/2,90,.7,180,"shared");o.state="fleeOther";o.target=q.id;q.state="fleeOther";q.target=o.id;o.stateTimer=q.stateTimer=180}
+   }
+ }
+ if(o.state==="court"){
+   const q=state.organisms.find(x=>x.id===o.target);
+   if(q&&q.cooldown<=0&&Math.hypot(q.x-o.x,q.y-o.y)<radius(o.mass)+radius(q.mass)+8&&state.organisms.length<ECO_CONFIG.maxOrganisms){
+     const child=makeOrganism();child.x=(o.x+q.x)/2+rand(-20,20);child.y=(o.y+q.y)/2+rand(-20,20);child.mass=clamp((o.mass+q.mass)/2*rand(.72,.9),.25,5);child.color=Math.random()<.5?o.color:q.color;child.module=Math.random()<.46?(o.module||q.module):null;child.aggression=clamp((o.aggression+q.aggression)/2+rand(-.1,.1),0,1);child.curiosity=clamp((o.curiosity+q.curiosity)/2+rand(-.1,.1),0,1);child.school=o.school||q.school||`s${Math.floor(rand(1,999))}`;child.lineage=o.lineage;o.cooldown=q.cooldown=1200;state.organisms.push(child);state.ecosystem.births++;addPatch("nursery",child.x,child.y,3);burst(child.x,child.y,"#e8ffda",16,1.8);focusEvent(child.x,child.y,180);o.stateTimer=q.stateTimer=0
+   }
+ }
+ if(o.health<=0||o.energy<=0){killOrganism(o,o.age>7200?"senescence":"starvation");state.ecosystem.deaths++}
 }
-function damage(n){n/=phenotype().defense;state.health=clamp(state.health-n);toast("ECOLOGICAL INJURY");if(state.health<=0){state.health=35;state.energy=25;state.water=30;state.mass=Math.max(.7,state.mass*.6);state.x=WORLD/2;state.y=WORLD/2;log("The lineage persisted through a reduced surviving propagule.")}}
+function damage(n){n/=phenotype().defense;state.health=clamp(state.health-n);toast("ECOLOGICAL INJURY");if(state.health<=0){state.health=35;state.energy=25;state.water=30;state.mass=Math.max(.7,state.mass*.6);state.x=WORLD/2;state.y=WORLD/2;if(state.camera){state.camera.lookX=0;state.camera.lookY=0;state.camera.eventTimer=0}log("The lineage persisted through a reduced surviving propagule.")}}
 
 function rememberDiet(type,amount=1){
  state.dietMemory[type]=clamp((state.dietMemory[type]||0)+amount,0,30);
@@ -448,7 +498,7 @@ function nearestNiche(x,y,range=90){return state.niches.find(n=>n.biome===state.
 function conditionNiche(){
  let n=nearestNiche(state.x,state.y,75);
  if(!n){n={id:Math.random().toString(36).slice(2),x:state.x,y:state.y,biome:state.biome,strength:0,rests:0,type:moduleCount("light")?"PHOTIC MAT":moduleCount("detox")?"DETOX BED":"MUCUS NEST"};state.niches.push(n);log(`A new ${n.type.toLowerCase()} began forming.`)}
- n.strength=clamp(n.strength+.24,0,100);n.rests++;n.milestones=Array.isArray(n.milestones)?n.milestones:[];
+ n.strength=clamp(n.strength+.24,0,100);addPatch("conditioned",n.x,n.y,.35);n.rests++;n.milestones=Array.isArray(n.milestones)?n.milestones:[];
  for(const mark of [10,25,50,75,100])if(n.strength>=mark&&!n.milestones.includes(mark)){n.milestones.push(mark);addXP(mark===100?8:3,`The local niche reached ${mark}% conditioning`);burst(n.x,n.y,"#8cff9c",9+Math.floor(mark/10),1.1)}
 }
 function nicheBonus(){
@@ -513,7 +563,7 @@ function resolveIntent(intent){
    }else{const harm=Math.round((4+near.aggression*8)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`The signal triggered a defensive secretion. You lost ${harm} health and retreated.`;icon="†";good=false;addEffect("toxin",near.x,near.y,85,near.aggression,360,"other")}
  }else if(intent==="merge"){
    const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
-   if(p+compatibility>=o+7){integrateModule(near,true);removeOrganism(near);title="STABLE ENDOSYMBIOSIS";text="Membranes remained fused. The organism persists as a living functional module and is now visible in your body.";icon="◉"}
+   if(p+compatibility>=o+7){integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;title="STABLE ENDOSYMBIOSIS";text="Membranes remained fused. The organism persists as a living functional module and is now visible in your body.";icon="◉"}
    else if(p+compatibility>=o+1){state.health=clamp(state.health-3);state.energy=clamp(state.energy+5);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text="The membranes exchanged cytoplasm and genes but separated before stable integration. Both organisms were altered.";icon="∞"}
    else{const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules and inflicted ${harm} damage.`:`Fusion destabilised your membrane, causing ${harm} damage and forced retreat.`;icon="◐";good=false}
  }else if(intent==="engulf"){
@@ -670,7 +720,7 @@ function completeEpoch(id){
 }
 function migrate(){
  if(state.energy<10){toast("NOT ENOUGH ENERGY");return}
- state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;state.effects=[];state.resources=[];spawnFood(58);populate();
+ state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;if(state.camera){state.camera.lookX=0;state.camera.lookY=0;state.camera.eventTimer=0}state.effects=[];state.resources=[];spawnFood(ECO_CONFIG.targetFood);populate();
  Object.entries(BIOMES[state.biome].pressure).forEach(([a,v])=>addPressure(a,v*2));
  addXP(15,`Migration into ${BIOMES[state.biome].name}`);renderAll();save()
 }
@@ -679,6 +729,34 @@ function chooseOrigin(id){
  $("originModal").classList.remove("visible");log(`Lineage founded as ${o.name}.`);renderAll();save()
 }
 
+
+function systemWeather(){
+ const w=weatherDef();state.weather.timer--;state.weather.phase+=.006;
+ if(state.weather.timer<=0){const choices=WEATHER.filter(x=>x.id!==w.id);const next=choice(choices);state.weather=makeWeather(next.id);log(`${next.name.toLowerCase()} moved across the ecosystem.`);toast(`${next.icon} ${next.name}`);if(next.id==="bloom")for(let i=0;i<Math.min(18,ECO_CONFIG.targetFood+20-state.resources.length);i++)spawnFood(1)}
+ if(w.id==="rain"&&state.tick%100===0&&state.resources.length<ECO_CONFIG.targetFood+16)spawnFood(1);
+ if(w.id==="spores"&&state.tick%150===0)addPatch("spore",rand(40,WORLD-40),rand(40,WORLD-40),5);
+ if(w.id==="heat"&&state.tick%300===0)for(const o of state.organisms)o.energy=clamp(o.energy-.8);
+}
+function systemCarcasses(){
+ for(const c of state.carcasses){c.age++;c.phase+=.02;c.nutrition=Math.max(0,c.nutrition-.002);if(c.age%500===0)addPatch("detritus",c.x,c.y,1)}
+ state.carcasses=state.carcasses.filter(c=>c.nutrition>0&&c.age<9000)
+}
+function systemSuccession(){
+ if(state.tick%180!==0)return;
+ for(const p of state.patches){p.age++;p.phase+=.04;if(p.biome!==state.biome)continue;
+   if(p.type==="detritus"&&p.strength>28)p.type="microbial";
+   else if(p.type==="microbial"&&p.strength>55)p.type="mat";
+   else if(p.type==="spore"&&p.strength>40)p.type="fungal";
+   p.strength=clamp(p.strength+((p.type==="microbial"||p.type==="spore")?.35:.08),0,100)
+ }
+ state.patches=state.patches.filter(p=>p.age<9000||p.strength>45)
+}
+function systemCamera(){
+ const c=state.camera;if(!c)return;let tx=0,ty=0;
+ if(c.eventTimer>0&&Number.isFinite(c.eventX)){c.eventTimer--;tx=clamp((c.eventX-state.x)*.32,-150,150);ty=clamp((c.eventY-state.y)*.24,-100,100)}
+ else{c.eventX=c.eventY=null;const interesting=state.organisms.find(o=>["huntOther","court"].includes(o.state)&&Math.hypot(o.x-state.x,o.y-state.y)<550);if(interesting){tx=clamp((interesting.x-state.x)*.18,-95,95);ty=clamp((interesting.y-state.y)*.14,-65,65)}}
+ c.lookX+=(tx-c.lookX)*.025;c.lookY+=(ty-c.lookY)*.025
+}
 function systemClock(){
  if(simulationPaused()||state.encounter||state.interactionTarget)return false;
  state.tick++;
@@ -699,17 +777,17 @@ function systemWorldInteractions(){collect();updateEffects();updateParticles()}
 function systemOrganismAI(){for(const organism of [...state.organisms])updateOrganism(organism)}
 function systemNicheConditioning(){if(state.mode==="rest"&&state.tick%300===0)conditionNiche()}
 function systemPopulation(){
- if(state.resources.length<50&&state.tick%60===0)spawnFood(3);
- if(state.organisms.length<18&&state.tick%180===0)state.organisms.push(makeOrganism())
+ if(state.resources.length<ECO_CONFIG.targetFood&&state.tick%60===0)spawnFood(3);
+ if(state.organisms.length<ECO_CONFIG.targetOrganisms&&state.tick%150===0)state.organisms.push(makeOrganism())
 }
 function systemPhysiology(){if(state.tick%300===0){ecologyTick();renderAll();save()}}
 function simulateStep(){
  if(!systemClock())return;
- systemPlayerMovement();systemWorldInteractions();systemOrganismAI();systemNicheConditioning();systemPopulation();systemPhysiology()
+ systemWeather();systemCamera();systemPlayerMovement();systemWorldInteractions();systemOrganismAI();systemCarcasses();systemSuccession();systemNicheConditioning();systemPopulation();systemPhysiology()
 }
 
-function sx(x){return canvas.width/2+(x-state.x)*cameraScale()}
-function sy(y){return canvas.height/2+(y-state.y)*cameraScale()}
+function sx(x){const c=cameraCenter();return canvas.width/2+(x-c.x)*cameraScale()}
+function sy(y){const c=cameraCenter();return canvas.height/2+(y-c.y)*cameraScale()}
 function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)))}
 function circle(x,y,r,fill,stroke=null,width=1){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}}
 function worldLabel(x,y,text,color="#e8ffda"){ctx.font="bold 7px monospace";ctx.textAlign="center";ctx.fillStyle="rgba(3,9,6,.72)";ctx.fillRect(x-ctx.measureText(text).width/2-3,y-8,ctx.measureText(text).width+6,11);ctx.fillStyle=color;ctx.fillText(text,x,y)}
@@ -723,25 +801,36 @@ function drawWorld(){
   if(n===4){circle(x+size*.3,y+size*.68,Math.max(2,size*.09),"rgba(255,255,255,.16)");circle(x+size*.62,y+size*.58,Math.max(2,size*.06),"rgba(255,255,255,.12)")}
   if(n===7){ctx.fillStyle="rgba(0,0,0,.18)";for(let i=0;i<3;i++)ctx.fillRect(x+size*(.2+i*.22),y+size*(.25+(i%2)*.35),Math.max(2,size*.08),Math.max(2,size*.16))}
  }
- drawNiches();drawEffects()
+ drawPatches();drawNiches();drawEffects();drawAmbient()
 }
+
+function patchStyle(type){return({detritus:["#8f6744","DETRITUS"],microbial:["#7fbf75","MICROBIAL FILM"],mat:["#4fcf8a","LIVING MAT"],spore:["#d4b07a","SPORE BED"],fungal:["#c99ee8","MYCELIAL PATCH"],nursery:["#ffd3e2","NURSERY"],conditioned:["#8cffc4","CONDITIONED GROUND"]})[type]||["#789b78",type.toUpperCase()]}
+function drawPatches(){for(const p of state.patches){if(p.biome!==state.biome||!visible(p.x,p.y,130))continue;const [color,label]=patchStyle(p.type),x=sx(p.x),y=sy(p.y),r=(14+p.strength*.34)*cameraScale();ctx.save();ctx.globalAlpha=.12+p.strength/650;ctx.fillStyle=color;ctx.beginPath();for(let i=0;i<12;i++){const a=i/12*Math.PI*2,rr=r*(.76+.18*Math.sin(i*2.7+p.phase));const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill();ctx.globalAlpha=.34;ctx.strokeStyle=color;ctx.setLineDash([2,5]);ctx.stroke();ctx.restore();if(p.strength>55)worldLabel(x,y-r-3,label,color)}}
+function drawCarcasses(){for(const c of state.carcasses){if(c.biome!==state.biome||!visible(c.x,c.y,60))continue;const x=sx(c.x),y=sy(c.y),r=Math.max(4,radius(c.mass)*cameraScale()*.6);ctx.save();ctx.globalAlpha=clamp(1-c.age/9000,.25,1);ctx.translate(x,y);ctx.rotate(Math.sin(c.phase)*.12);ctx.fillStyle="#7f5b47";ctx.beginPath();ctx.ellipse(0,0,r*1.35,r*.62,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#d5a06e";ctx.setLineDash([3,3]);ctx.stroke();ctx.restore()}}
+function drawAmbient(){const w=weatherDef(),t=state.tick;ctx.save();if(w.id==="rain"){ctx.strokeStyle="rgba(170,220,255,.23)";for(let i=0;i<34;i++){const x=(i*83+t*.65)%canvas.width,y=(i*47+t*1.7)%canvas.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+9);ctx.stroke()}}else if(w.id==="spores"||w.id==="bloom"){ctx.fillStyle=w.id==="bloom"?"rgba(255,230,140,.22)":"rgba(225,196,145,.22)";for(let i=0;i<28;i++){const x=(i*101+t*.12*(i%3+1))%canvas.width,y=(i*61+Math.sin(t*.01+i)*18)%canvas.height;circle(x,y,1+(i%3),ctx.fillStyle)}}else if(w.id==="heat"){ctx.strokeStyle="rgba(255,190,120,.12)";for(let y=20;y<canvas.height;y+=45){ctx.beginPath();for(let x=0;x<canvas.width;x+=16)ctx.lineTo(x,y+Math.sin(x*.035+t*.03)*4);ctx.stroke()}}ctx.restore()}
 function drawNiches(){for(const n of state.niches){if(n.biome!==state.biome||!visible(n.x,n.y,140))continue;const x=sx(n.x),y=sy(n.y),r=(24+n.strength*.42)*cameraScale(),alpha=.12+n.strength/500;ctx.save();ctx.globalAlpha=alpha;circle(x,y,r,n.type==="PHOTIC MAT"?"#ffd66a":"#8cff9c");ctx.globalAlpha=.45;ctx.strokeStyle=n.type==="DETOX BED"?"#91ff9c":n.type==="PHOTIC MAT"?"#ffd66a":"#8cffc4";ctx.setLineDash([4,5]);ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.restore();if(n.strength>28)worldLabel(x,y-r-4,n.type,n.type==="PHOTIC MAT"?"#ffd66a":"#8cff9c")}}
 function drawEffects(){for(const e of state.effects){if(!visible(e.x,e.y,e.radius+30))continue;const x=sx(e.x),y=sy(e.y),r=e.radius*cameraScale(),d=EFFECT_TYPES[e.type];ctx.save();ctx.globalAlpha=.13+.06*Math.sin(e.phase);circle(x,y,r,d.color);ctx.globalAlpha=.8;ctx.strokeStyle=d.color;ctx.lineWidth=2;ctx.setLineDash(e.type==="pulse"?[2,6]:e.type==="mucus"?[7,3]:[3,5]);ctx.beginPath();ctx.arc(x,y,r*(.82+.08*Math.sin(e.phase)),0,Math.PI*2);ctx.stroke();ctx.restore();worldLabel(x,y-r-5,`${d.icon} ${d.name}`,d.color)}}
 function visible(x,y,p=40){const a=sx(x),b=sy(y);return a>-p&&a<canvas.width+p&&b>-p&&b<canvas.height+p}
 function drawFood(){for(const r of state.resources){if(!visible(r.x,r.y))continue;r.phase+=.04;const x=sx(r.x),y=sy(r.y)+Math.sin(r.phase)*2,s=Math.max(4,7*cameraScale()),f=FOOD[r.type];ctx.save();ctx.shadowBlur=8;ctx.shadowColor=f.color;circle(x,y,s,f.color,"rgba(255,255,255,.65)",1);ctx.shadowBlur=0;ctx.fillStyle="#fff";ctx.fillRect(x-s*.15,y-s*.9,s*.3,s*.35);ctx.restore()}}
 function drawModuleAt(x,y,r,id,index=0,total=1){const m=moduleById(id);if(!m)return;const a=-Math.PI/2+(index/Math.max(1,total))*Math.PI*2,rr=r*1.05,mx=x+Math.cos(a)*rr,my=y+Math.sin(a)*rr;ctx.save();ctx.shadowBlur=7;ctx.shadowColor=m.color;circle(mx,my,Math.max(3,r*.22),m.color,"#e8ffda",1);ctx.shadowBlur=0;ctx.fillStyle="#07120d";ctx.font=`bold ${Math.max(5,r*.18)}px monospace`;ctx.textAlign="center";ctx.fillText(m.icon,mx,my+2);ctx.restore()}
 function drawOrganism(o){
- if(!visible(o.x,o.y,80))return;const x=sx(o.x),y=sy(o.y),r=Math.max(6,radius(o.mass)*cameraScale()*.72),flash=o.flash>0&&o.flash%2===0;
- ctx.save();ctx.shadowBlur=o.module?8:3;ctx.shadowColor=o.module?moduleById(o.module).color:o.color;
- circle(x,y,r,flash?"#fff":o.color,"rgba(232,255,218,.6)",1.3);circle(x-r*.25,y-r*.1,r*.38,"#15382d");circle(x+r*.34,y-r*.25,r*.14,"#fff");
- if(o.module)drawModuleAt(x,y,r,o.module,0,1);
- if(o.stuck>0){ctx.strokeStyle="#8cffc4";ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(x,y,r*1.45,0,Math.PI*2);ctx.stroke()}
- if(o.stunned>0){ctx.fillStyle="#7de0ff";ctx.font="bold 11px monospace";ctx.fillText("ϟ",x+r*.7,y-r*.8)}
+ if(!visible(o.x,o.y,90))return;const x=sx(o.x),y=sy(o.y),r=Math.max(5.5,radius(o.mass)*cameraScale()*.72),flash=o.flash>0&&o.flash%2===0,role=o.role||organismRole(o),pulse=.94+Math.sin(o.phase*2)*.05;
+ ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(o.vy,o.vx||.001)*.18);ctx.scale(pulse,1/pulse);ctx.shadowBlur=o.module?9:4;ctx.shadowColor=o.module?moduleById(o.module).color:o.color;
+ if(role==="predator"){ctx.fillStyle=flash?"#fff":o.color;ctx.beginPath();ctx.moveTo(r*1.2,0);ctx.quadraticCurveTo(r*.25,-r,r*-1,0);ctx.quadraticCurveTo(r*.25,r,r*1.2,0);ctx.fill()}
+ else if(role==="producer"){for(let i=0;i<5;i++){const a=i/5*Math.PI*2;circle(Math.cos(a)*r*.7,Math.sin(a)*r*.7,r*.46,flash?"#fff":o.color)}circle(0,0,r*.7,"#163b2b")}
+ else{ctx.fillStyle=flash?"#fff":o.color;ctx.beginPath();for(let i=0;i<10;i++){const a=i/10*Math.PI*2,rr=r*(.9+.12*Math.sin(i*3+o.phase));const px=Math.cos(a)*rr,py=Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill()}
+ ctx.shadowBlur=0;circle(-r*.2,-r*.06,r*.36,"#15382d");circle(r*.34,-r*.24,r*.14,"#fff");circle(r*.38,-r*.24,r*.055,"#06100c");
+ if(role==="decomposer"){ctx.strokeStyle="#91ff9c";for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(-r*.5,i*r*.18);ctx.quadraticCurveTo(-r*1.2,i*r*.25,-r*1.45,i*r*.08);ctx.stroke()}}
+ if(role==="social"||o.school){ctx.strokeStyle="rgba(219,160,255,.65)";ctx.beginPath();ctx.arc(0,0,r*1.28+Math.sin(o.phase*3)*2,0,Math.PI*2);ctx.stroke()}
+ if(o.module)drawModuleAt(0,0,r,o.module,0,1);
+ if(o.stuck>0){ctx.strokeStyle="#8cffc4";ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(0,0,r*1.45,0,Math.PI*2);ctx.stroke()}
+ if(o.stunned>0){ctx.fillStyle="#7de0ff";ctx.font="bold 11px monospace";ctx.fillText("ϟ",r*.7,-r*.8)}
+ if(o.state==="court"){ctx.fillStyle="#ffd3e2";ctx.font="bold 9px monospace";ctx.fillText("∞",-3,-r*1.4)}
  ctx.restore()
 }
 function drawParticles(){for(const q of state.particles){if(!visible(q.x,q.y))continue;ctx.save();ctx.globalAlpha=clamp(q.life/30,0,1);circle(sx(q.x),sy(q.y),q.size*cameraScale(),q.color);ctx.restore()}}
 function drawPlayer(){
- const x=canvas.width/2,y=canvas.height/2,r=Math.max(11,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c",dark="#14382a",light="#e8ffda";
+ const x=sx(state.x),y=sy(state.y),r=Math.max(11,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c",dark="#14382a",light="#e8ffda";
  ctx.save();ctx.shadowBlur=12;ctx.shadowColor=main;circle(x,y,r,main,light,2);ctx.shadowBlur=0;circle(x-r*.22,y-r*.05,r*.42,dark);circle(x+r*.35,y-r*.28,r*.16,light);circle(x+r*.38,y-r*.28,r*.06,"#06100c");
  if(gene("chemical sensing")){ctx.strokeStyle=light;ctx.beginPath();ctx.moveTo(x-r*.7,y);ctx.quadraticCurveTo(x-r*1.25,y-r*.25,x-r*1.55,y-r*.05);ctx.stroke()}
  if(gene("cilia")){ctx.strokeStyle=light;for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(x+i*r*.22,y+r*.78);ctx.lineTo(x+i*r*.26,y+r*1.15+(i%2)*2);ctx.stroke()}}
@@ -752,7 +841,7 @@ function drawPlayer(){
  ctx.restore();
  if(state.target){const tx=sx(state.target.x),ty=sy(state.target.y);ctx.strokeStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(tx,ty,9,0,Math.PI*2);ctx.stroke()}
 }
-function draw(){drawWorld();drawFood();state.organisms.forEach(drawOrganism);drawParticles();drawPlayer()}
+function draw(){drawWorld();drawCarcasses();drawFood();state.organisms.forEach(drawOrganism);drawParticles();drawPlayer()}
 
 function bar(id,v,c){const e=$(id);e.style.width=clamp(v)+"%";e.style.background=v<24?"var(--red)":c}
 function renderMode(){$("stateLabel").textContent=isWaterAt(state.x,state.y)?"HYDRATING":state.mode.toUpperCase();$("forageBtn").classList.toggle("active",state.mode==="forage");$("restBtn").classList.toggle("active",state.mode==="rest")}
@@ -788,7 +877,9 @@ function renderEcology(){
   ["Biome",BIOMES[state.biome].name],
   ["Exact tile",`${tile.name}<br>${tile.effect}`],
   ["Water exchange",tile.water?`Approximately +${hydration} hydration each physiology cycle before normal water use`:"No environmental uptake on this tile"],
-  ["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<300).length} detected locally`],
+  ["Nearby organisms",`${state.organisms.filter(o=>Math.hypot(o.x-state.x,o.y-state.y)<420).length} detected locally`],
+  ["Living world",`${weatherDef().icon} ${weatherDef().name}<br>${state.ecosystem.births} births · ${state.ecosystem.deaths} deaths · ${state.ecosystem.hunts} hunts`],
+  ["Succession",`${state.patches.filter(p=>p.biome===state.biome).length} habitat patches · ${state.carcasses.length} carcasses`],
   ["Niche fit",`${Math.round(fit())}% compatibility`]
  ].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
  $("symbiontCards").innerHTML=state.symbionts.length?state.symbionts.map((id,i)=>{const m=moduleById(id);return`<div class="module-card"><i style="color:${m.color}">${m.icon}</i><b>${m.name}</b>${m.desc}<br>Visible module ${i+1} · biases ${AXES[m.axis].name}</div>`}).join(""):`<div class="card"><b>No integrated organisms</b>Successful merger or living engulfment can add visible functional modules.</div>`;
@@ -799,7 +890,7 @@ function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`)
 function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
 function inspectAt(wx,wy){let best=null,d=Infinity;for(const o of state.organisms){const q=Math.hypot(o.x-wx,o.y-wy);if(q<d){d=q;best=o}}const box=$("inspect");if(best&&d<70/cameraScale()){box.hidden=false;const m=moduleById(best.module);box.innerHTML=`<b style="color:${best.color}">${m?m.icon+" "+m.name:"UNSPECIALISED ORGANISM"}</b><br>mass ${best.mass.toFixed(1)} · health ${Math.round(best.health)}<br>${best.aggression>.5?"reactive chemistry":"cautious chemistry"} · ${best.state}${m?"<br>potential living module: "+m.effect:""}`;clearTimeout(inspectAt.t);inspectAt.t=setTimeout(()=>box.hidden=true,3500)}}
-function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(state.x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(state.y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
+function worldPoint(ev){const rect=canvas.getBoundingClientRect(),cx=(ev.clientX-rect.left)*(canvas.width/rect.width),cy=(ev.clientY-rect.top)*(canvas.height/rect.height);return{x:clamp(cameraCenter().x+(cx-canvas.width/2)/cameraScale(),0,WORLD),y:clamp(cameraCenter().y+(cy-canvas.height/2)/cameraScale(),0,WORLD)}}
 let activePointer=null,longTimer=null,startPoint=null,moved=false;
 function pointerStart(e){e.preventDefault();activePointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);startPoint={x:e.clientX,y:e.clientY};moved=false;const p=worldPoint(e);movementTarget(p.x,p.y);longTimer=setTimeout(()=>{if(!moved)inspectAt(p.x,p.y)},560)}
 function pointerMove(e){if(activePointer!==e.pointerId)return;e.preventDefault();if(startPoint&&Math.hypot(e.clientX-startPoint.x,e.clientY-startPoint.y)>9)moved=true;const p=worldPoint(e);movementTarget(p.x,p.y)}
@@ -840,7 +931,11 @@ function load(){
   state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];
   state.effects=Array.isArray(x.effects)?x.effects.filter(e=>e&&EFFECT_TYPES[e.type]&&[e.x,e.y,e.radius,e.life].every(Number.isFinite)).map(e=>Object.assign({power:1,owner:"player",phase:0},e)):[];
   state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
-  state.particles=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
+  state.patches=Array.isArray(x.patches)?x.patches.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>Object.assign(makePatch("microbial",p.x,p.y),p)).slice(0,ECO_CONFIG.maxPatches):[];
+  state.carcasses=Array.isArray(x.carcasses)?x.carcasses.filter(c=>c&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&Number.isFinite(c.nutrition)).map(c=>Object.assign({age:0,phase:0,biome:state.biome},c)).slice(0,ECO_CONFIG.maxCarcasses):[];
+  state.weather=x.weather&&WEATHER.some(w=>w.id===x.weather.id)?Object.assign(makeWeather(x.weather.id),x.weather):makeWeather();
+  state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});
+  state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
   state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
   state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};
@@ -850,7 +945,7 @@ function load(){
 function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small>Begins with ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
 function start(newLineage=false){
  if(newLineage){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
- if(!state.resources.length)spawnFood(58);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
+ if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
  if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500)
 }
 export function createGameRuntime(engine){
@@ -868,7 +963,7 @@ export function createGameRuntime(engine){
   state:()=>state,
   save,
   build:BUILD_VERSION,
-  diagnostics(){return{build:BUILD_VERSION,tick:state.tick,cycle:state.cycle,organisms:state.organisms.length,resources:state.resources.length,effects:state.effects.length,niches:state.niches.length,symbionts:state.symbionts.length}}
+  diagnostics(){return{build:BUILD_VERSION,tick:state.tick,cycle:state.cycle,organisms:state.organisms.length,resources:state.resources.length,effects:state.effects.length,niches:state.niches.length,symbionts:state.symbionts.length,carcasses:state.carcasses.length,patches:state.patches.length,weather:state.weather.id,births:state.ecosystem.births,deaths:state.ecosystem.deaths}}
  }
 }
 function showRuntimeError(error){
