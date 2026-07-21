@@ -1,10 +1,10 @@
 {
   "product": "EVOLVA",
-  "version": "8.2.1",
-  "cache": "evolva-v8-2-1",
-  "saveKey": "evolva-save-v8-2-1",
+  "version": "8.2.2",
+  "cache": "evolva-v8-2-2",
+  "saveKey": "evolva-save-v8-2-2",
   "engine": "fixed-timestep-system-engine",
   "simulationHz": 60,
   "legacySaveFloor": "7.0.0",
-  "name": "Phenotype Intelligence \u2014 Stability Patch"
+  "name": "Phenotype Intelligence \u2014 Compact Inspection Patch"
 }
