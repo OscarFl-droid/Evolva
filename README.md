@@ -1,4 +1,4 @@
-# EVOLVA v9.0.4 — Living Morphology
+# EVOLVA v9.0.5 — Defensive Ecology Stability
 
 Visible morphology now scales continuously with lineage complexity, completed Atlas genes, symbionts and play style. Late-game forms use an original chitinous brood-organism aesthetic: segmented armour, hooked feeding limbs, dorsal spines, organ sacs, brood buds and luminous sensory clusters. No specific third-party creature is reproduced.
 
@@ -9,9 +9,9 @@ Visible morphology now scales continuously with lineage complexity, completed At
 - Major evolution triggers a short non-blocking morphology burst.
 - Lineage panel reports complexity and current morphology identity.
 
-Save key: `evolva-save-v9-0-4`. Migrates v8.3.0 and earlier supported saves. Cache: `evolva-v9-0-4`.
+Save key: `evolva-save-v9-0-5`. Migrates v8.3.0 and earlier supported saves. Cache: `evolva-v9-0-5`.
 
-## v9.0.4 stability patch
+## v9.0.5 stability patch
 
 - Separates Atlas pointer cancellation from pointer release, preventing cancelled iOS gestures from selecting a Genome Atlas node.
 - Sanitises migrated capacity, pressure, health, mass, level and generation values before morphology calculations.
@@ -20,5 +20,14 @@ Save key: `evolva-save-v9-0-4`. Migrates v8.3.0 and earlier supported saves. Cac
 - Extends the release audit to verify v9.0.0 and v8.3.0 migration, morphology functions and Atlas cancellation routing.
 
 
-## v9.0.4
+## v9.0.5
 Adds action experience rewards, organism-specific defensive mechanisms, compact cycle-history header, scroll-safe terrain gestures, non-overlapping environment/organism readouts, communication-dependent idle zoom, and larger inspection targets.
+
+## v9.0.5 audit fixes
+
+- Corrected installed-app release name.
+- Normalised legacy organism defence values.
+- Interaction reports now use actual health restored and energy consumed.
+- Removed obsolete living-engulfment module text.
+- Reset compact inspection sizing between targets.
+- Removed duplicate save-loader guard.

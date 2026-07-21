@@ -121,12 +121,12 @@ linear-gradient(#07120d,#08150f)}
 .inspect-head{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}.inspect-head b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:6.8px}.inspect small{display:block;color:var(--blue);margin-bottom:3px;font-size:5px}.inspect-row{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.threat{display:inline-block;flex:0 0 auto;width:max-content;padding:1px 3px;border:1px solid currentColor;font-size:5px;font-weight:bold}.threat.easy{color:var(--green)}.threat.favourable{color:#c9ff8c}.threat.risky{color:var(--gold)}.threat.severe{color:#ff9b77}.threat.impossible{color:var(--red)}
 @media(max-width:360px){.living-atlas{height:420px}.attribute-strip{grid-template-columns:1fr 1fr}.attribute-mini{min-height:88px}}
 
-/* v9.0.4 mobile interaction and Atlas legibility */
+/* v9.0.5 mobile interaction and Atlas legibility */
 #interactionCancelBtn{display:block;width:100%;margin-top:8px;padding:9px 12px;background:#10261d;border:2px solid #315b47;color:var(--muted);font:inherit;font-size:7px;letter-spacing:1.2px;text-align:center;border-radius:0;box-shadow:none;-webkit-appearance:none;appearance:none}
 #interactionCancelBtn:active{background:#173d2d;color:var(--text);transform:translateY(1px)}
 @media(max-width:480px){.living-atlas{height:500px}.atlas-legend{font-size:6px;gap:9px}.atlas-legend i{width:10px;height:10px}.atlas-toolbar p{font-size:6.5px;line-height:1.35}}
 
-/* v9.0.4 compact header, scroll-safe world and readout separation */
+/* v9.0.5 compact header, scroll-safe world and readout separation */
 .hud{padding:5px 9px;min-height:54px;align-items:center}.hud h1{font-size:16px;line-height:1}.hud>div:first-child{display:flex;align-items:baseline;gap:10px}.hud>div:first-child>span{white-space:nowrap}.hud-right{max-width:52%;display:grid;grid-template-columns:auto auto;column-gap:7px;align-items:baseline}.hud-right b{font-size:8px}.hud-right>span{font-size:6px}.cycle-history{grid-column:1/-1;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:5px;max-width:190px;margin-top:2px}
 .world{touch-action:pan-y}.tile-readout[hidden]{display:none}.inspect{z-index:8}
 @media(max-width:380px){.hud{min-height:50px}.hud h1{font-size:14px}.cycle-history{max-width:150px}}
