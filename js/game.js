@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="9.0.2",BUILD_CACHE="evolva-v9-0-2";
+export const BUILD_VERSION="9.0.3",BUILD_CACHE="evolva-v9-0-3";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v9-0-2",LEGACY_SAVE_KEY="evolva-save-v9-0-1",OLDER_SAVE_KEYS=["evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v9-0-3",LEGACY_SAVE_KEY="evolva-save-v9-0-2",OLDER_SAVE_KEYS=["evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -165,7 +165,7 @@ function atlasVisible(node){
 }
 function sanitizeAtlasView(){
  if(!state.atlasView||![state.atlasView.x,state.atlasView.y,state.atlasView.zoom].every(Number.isFinite))state.atlasView={x:430,y:360,zoom:1};
- state.atlasView.zoom=clamp(state.atlasView.zoom,.45,2.6);clampAtlasView()
+ state.atlasView.zoom=clamp(state.atlasView.zoom,.58,2.6);clampAtlasView()
 }
 function clampAtlasView(){
  const margin=230/state.atlasView.zoom;
@@ -189,7 +189,7 @@ function atlasFocusCurrent(){
 }
 function atlasZoom(delta,clientX=null,clientY=null){
  sanitizeAtlasView();const before=clientX===null?null:atlasWorldFromClient(clientX,clientY),old=state.atlasView.zoom;
- state.atlasView.zoom=clamp(old*delta,.45,2.6);
+ state.atlasView.zoom=clamp(old*delta,.58,2.6);
  if(before){
    const after=atlasWorldFromClient(clientX,clientY);state.atlasView.x+=before.x-after.x;state.atlasView.y+=before.y-after.y
  }
@@ -208,7 +208,7 @@ function atlasPointerMove(e){
  if(!atlasPointers.has(e.pointerId))return;e.preventDefault();atlasPointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(atlasPointers.size===2&&atlasDrag?.pinch){
    const a=[...atlasPointers.values()],dx=a[0].x-a[1].x,dy=a[0].y-a[1].y,dist=Math.max(10,Math.hypot(dx,dy)),mx=(a[0].x+a[1].x)/2,my=(a[0].y+a[1].y)/2;
-   state.atlasView.zoom=clamp(atlasDrag.zoom*dist/atlasDrag.distance,.45,2.6);
+   state.atlasView.zoom=clamp(atlasDrag.zoom*dist/atlasDrag.distance,.58,2.6);
    const after=atlasWorldFromClient(mx,my);state.atlasView.x+=atlasDrag.world.x-after.x;state.atlasView.y+=atlasDrag.world.y-after.y;clampAtlasView();atlasDirty=true;return
  }
  if(e.pointerId!==atlasPointer||!atlasDrag||atlasDrag.pinch)return;
@@ -281,14 +281,18 @@ function drawAtlas(now=performance.now()){
      c.strokeStyle=status==="available"?"rgba(255,214,106,.28)":"rgba(219,160,255,.25)";
      c.lineWidth=(8+Math.sin(performance.now()/300)*2)/state.atlasView.zoom;c.beginPath();c.arc(p.x,p.y,18,0,Math.PI*2);c.stroke()
    }
-   c.fillStyle=atlasNodeColor(status,n);c.strokeStyle=status==="owned"?"#dfffdc":status==="available"?"#fff2aa":"#45604f";c.lineWidth=2/state.atlasView.zoom;
-   const r=status==="owned"?14:12;
-   c.globalAlpha=.22;c.strokeStyle=AXES[n.axis]?"#7de0ff":"#45604f";c.beginPath();c.arc(p.x,p.y,r+4+n.tier,0,Math.PI*2);c.stroke();c.globalAlpha=1;
+   const overview=state.atlasView.zoom<.78,screenScale=1/state.atlasView.zoom;
+   c.fillStyle=atlasNodeColor(status,n);c.strokeStyle=status==="owned"?"#dfffdc":status==="available"?"#fff2aa":"#45604f";c.lineWidth=2.3/state.atlasView.zoom;
+   const baseR=status==="owned"?15:13,r=baseR*Math.min(1.45,screenScale);
+   c.globalAlpha=.28;c.strokeStyle=AXES[n.axis]?"#7de0ff":"#45604f";c.beginPath();c.arc(p.x,p.y,r+5+n.tier*screenScale,0,Math.PI*2);c.stroke();c.globalAlpha=1;
    c.beginPath();c.arc(p.x,p.y,r,0,Math.PI*2);c.fill();c.stroke();
-   c.fillStyle=status==="locked"?"#7b9582":"#07120d";c.font=`${Math.max(7,10/state.atlasView.zoom)}px monospace`;c.textAlign="center";c.fillText(n.icon,p.x,p.y+3.5/state.atlasView.zoom);
-   if(state.atlasView.zoom>.72){
-     c.fillStyle=status==="locked"?"rgba(168,197,165,.48)":"#e8ffda";c.font=`${Math.max(6,7.5/state.atlasView.zoom)}px monospace`;
-     c.fillText(n.name.toUpperCase(),p.x,p.y+24/state.atlasView.zoom)
+   c.fillStyle=status==="locked"?"#9ab09d":"#07120d";c.font=`bold ${11*screenScale}px monospace`;c.textAlign="center";c.fillText(n.icon,p.x,p.y+3.8*screenScale);
+   const showLabel=!overview||status!=="locked";
+   if(showLabel){
+     const label=n.name.toUpperCase(),fontSize=(overview?9.5:8)*screenScale,labelY=p.y+(overview?29:25)*screenScale;
+     c.font=`bold ${fontSize}px monospace`;const tw=c.measureText(label).width,pad=4*screenScale;
+     c.fillStyle="rgba(3,10,7,.82)";c.fillRect(p.x-tw/2-pad,labelY-fontSize,tw+pad*2,fontSize+4*screenScale);
+     c.fillStyle=status==="locked"?"rgba(190,211,191,.62)":status==="available"?"#fff2aa":"#e8ffda";c.fillText(label,p.x,labelY)
    }
  }
  c.restore()
@@ -632,6 +636,20 @@ function nearbyOrganism(){
 }
 function d20(){return Math.floor(Math.random()*20)+1}
 function encounterModifier(axis){return Math.floor((derivedAxis(axis)-1)/2)}
+function mergeSupplyType(o){
+ const moduleAxis=moduleById(o?.module)?.axis;
+ if(moduleAxis==="power")return"amino";
+ if(moduleAxis==="resilience")return"mineral";
+ if(moduleAxis==="communication"||moduleAxis==="cognition")return"pigment";
+ if(moduleAxis==="innovation")return"spore";
+ if(moduleAxis==="adaptability")return"lipid";
+ return o?.mass>state.mass?"amino":o?.curiosity>.6?"pigment":"sugar"
+}
+function addMergeSupplies(o,count=2){
+ const primary=mergeSupplyType(o),pool=[primary,primary,"sugar","lipid","amino","mineral","pigment","spore"],gained={};
+ for(let i=0;i<count;i++){const type=choice(pool);state.inventory[type]=(state.inventory[type]||0)+1;gained[type]=(gained[type]||0)+1}
+ return Object.entries(gained).map(([type,n])=>`${n}× ${FOOD[type].name}`).join(", ")
+}
 function relationScore(o){
  return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
        -(o.aggression*7+o.hunger/18)+(gene("quorum signal")?3:0)+(gene("cooperative exchange")?4:0);
@@ -673,14 +691,12 @@ function resolveIntent(intent){
    }else{const harm=Math.round((4+near.aggression*8)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`The signal triggered a defensive secretion. You lost ${harm} health and retreated.`;icon="†";good=false;addEffect("toxin",near.x,near.y,85,near.aggression,360,"other")}
  }else if(intent==="merge"){state.lineageActions.mergers++;
    const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
-   if(p+compatibility>=o+7){integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;title="STABLE ENDOSYMBIOSIS";text="Membranes remained fused. The organism persists as a living functional module and is now visible in your body.";icon="◉"}
-   else if(p+compatibility>=o+1){state.health=clamp(state.health-3);state.energy=clamp(state.energy+5);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text="The membranes exchanged cytoplasm and genes but separated before stable integration. Both organisms were altered.";icon="∞"}
-   else{const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules and inflicted ${harm} damage.`:`Fusion destabilised your membrane, causing ${harm} damage and forced retreat.`;icon="◐";good=false}
+   if(p+compatibility>=o+7){const energyCost=Math.round(clamp(9+near.mass*2,10,18)),supplies=addMergeSupplies(near,3);state.energy=clamp(state.energy-energyCost);integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;title="STABLE ENDOSYMBIOSIS";text=`Fusion required ${energyCost} energy. The organism persists as a living module, while transferable reserves added ${supplies} to your pack.`;icon="◉"}
+   else if(p+compatibility>=o+1){const energyCost=7,supplies=addMergeSupplies(near,1);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-3);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text=`The membranes separated after exchanging cytoplasm. You spent ${energyCost} energy and retained ${supplies} in your pack.`;icon="∞"}
+   else{const energyCost=5;state.energy=clamp(state.energy-energyCost);const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules, cost ${energyCost} energy and inflicted ${harm} damage.`:`Fusion cost ${energyCost} energy, destabilised your membrane and caused ${harm} damage.`;icon="◐";good=false}
  }else if(intent==="engulf"){state.lineageActions.engulfs++;
-   if(p>=o){const killed=p>=o+6||near.health<35;near.health-=Math.round(12*phenotype().force);addPressure("power",2.2);
-     if(killed||near.health<=0){const integrated=near.module&&Math.random()<clamp(.18+derivedAxis("innovation")*.045+derivedAxis("adaptability")*.012,0,0.82)?integrateModule(near):false;removeOrganism(near);state.energy=clamp(state.energy+(integrated?8:18));title=integrated?"LIVING ABSORPTION":"ENGULFMENT";text=integrated?"The prey survived internalisation and became a functional body module.":"The organism was enclosed, dismantled and metabolised for energy.";icon=integrated?"◉":"∨"}
-     else{near.state="fleePlayer";near.stateTimer=360;title="PARTIAL ENGULFMENT";text="The target tore free, injured and chemically marked. It is now fleeing.";icon="◔";addEffect("alarm",near.x,near.y,110,1,320,"other")}
-   }else{const harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The target resisted, damaged your membrane for ${harm} health and attempted to absorb your exposed structures.`;icon="◑";good=false}
+   if(p>=o){const energyCost=Math.round(clamp(5+near.mass*2,6,14)),healthGain=Math.round(clamp(7+near.mass*7,8,28));state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health+healthGain);addPressure("power",2.2);state.lineageActions.hunts++;removeOrganism(near);state.ecosystem.hunts++;title="COMPLETE ENGULFMENT";text=`The organism was enclosed and digested. Biomass restored ${healthGain} health, while capture and digestion consumed ${energyCost} energy.`;icon="∨"
+   }else{const energyCost=4,harm=Math.round((5+near.mass/state.mass*5)/phenotype().defense);state.energy=clamp(state.energy-energyCost);state.health=clamp(state.health-harm);if(Math.random()<.28)loseModule(near);fleeFrom(near);title="ENGULFMENT REVERSED";text=`The failed capture cost ${energyCost} energy. The target resisted, damaged your membrane for ${harm} health and attempted to absorb exposed structures.`;icon="◑";good=false}
  }else{
    const type=moduleCount("pulse")?"pulse":gene("toxin organelle")?"toxin":"mucus";
    addEffect(type,state.x,state.y,(type==="pulse"?135:105)*(1+(derivedAxis("communication")-1)*.025),1+derivedAxis("resilience")*.06,(type==="pulse"?150:620)*(1+(derivedAxis("innovation")-1)*.025),"player");
