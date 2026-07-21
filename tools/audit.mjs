@@ -30,9 +30,11 @@ for(const asset of ["styles.css","manifest.webmanifest","js/main.js","js/engine.
 fail(files.readme.includes(version),"README version mismatch");
 fail(files.readme.includes(cache),"README cache mismatch");
 fail(!fs.existsSync(path.join(root,"game.js")),"obsolete root game.js still present");
-for(const key of ["evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v7-5-1","evolva-save-v7"])fail(files.game.includes(key),`migration key missing: ${key}`);
-for(const feature of ["function inspectionTier()","function threatAssessment(o)","capacityEffects(axis)","ATLAS_LOGICAL_W=860","function pointerCancel(e)"])fail(files.game.includes(feature),`feature missing: ${feature}`);
-fail(!files.game.includes('pointercancel",pointerEnd'),"pointer cancellation still executes tap action");
+for(const key of ["evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v7-5-1","evolva-save-v7"])fail(files.game.includes(key),`migration key missing: ${key}`);
+for(const feature of ["function inspectionTier()","function threatAssessment(o)","capacityEffects(axis)","ATLAS_LOGICAL_W=860","function pointerCancel(e)","function atlasPointerCancel(e)","function morphologyComplexity()","function drawMorphology("])fail(files.game.includes(feature),`feature missing: ${feature}`);
+fail(!files.game.includes('pointercancel",pointerEnd'),"world pointer cancellation still executes tap action");
+fail(!files.game.includes('pointercancel",atlasPointerUp'),"Atlas pointer cancellation still executes node selection");
+fail(files.game.includes('pointercancel",atlasPointerCancel'),"Atlas cancellation handler is not bound");
 fail(files.game.includes("box.hidden=false;\n const rect=atlasCanvas.getBoundingClientRect(),bw=box.offsetWidth"),"Atlas tooltip is not measured before positioning");
 if(errors.length){console.error(`EVOLVA ${version} audit failed:\n- ${errors.join("\n- ")}`);process.exit(1)}
 console.log(`EVOLVA ${version} release audit passed (${Object.keys(files).length} source files, ${ids.length} DOM ids, ${new Set(refs).size} DOM references).`);
