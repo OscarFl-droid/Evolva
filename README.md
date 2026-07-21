@@ -1,28 +1,20 @@
-# EVOLVA v8.2.2 — Phenotype Intelligence Compact Inspection Patch
+# EVOLVA v9.0.1 — Living Morphology
 
-This release makes Derived Biological Capacities operational across movement, combat, defence, hydration, detection, ecological fit, signalling, merger, living-module retention and organism inspection.
+Visible morphology now scales continuously with lineage complexity, completed Atlas genes, symbionts and play style. Late-game forms use an original chitinous brood-organism aesthetic: segmented armour, hooked feeding limbs, dorsal spines, organ sacs, brood buds and luminous sensory clusters. No specific third-party creature is reproduced.
 
-## New
-- Capacity effects displayed directly beneath each biological capacity.
-- Five-level organism readout controlled by Cognition, Communication and sensory innovations.
-- Tap organisms for a transparent risk-assessment panel; tapping empty terrain still moves.
-- Threat classes: easy, favourable, risky, severe and overwhelming.
-- High-DPI Living Genome Atlas with richer developmental field graphics, clearer node states, tier rings, complete prerequisites and current/required capacity values.
-- v8.1 saves migrate into the separate `evolva-save-v8-2-0` key.
+## Progression
+- Six visible morphology stages from Ancestral Cell to Brood Apex.
+- Atlas genes add corresponding anatomy immediately.
+- Symbionts remain visible as integrated modules.
+- Major evolution triggers a short non-blocking morphology burst.
+- Lineage panel reports complexity and current morphology identity.
 
-Deploy by replacing the repository contents with this package. Cache: `evolva-v8-2-2`.
-Run `node tools/audit.mjs` before deployment.
+Save key: `evolva-save-v9-0-1`. Migrates v8.3.0 and earlier supported saves. Cache: `evolva-v9-0-1`.
 
-## Stability patch
-- Corrects the installed-app manifest identity.
-- Measures Atlas and organism overlays before clamping them to the viewport.
-- Clears cancelled touch pointers and long-press timers safely.
-- Applies intelligence gating consistently to the interaction panel.
-- Uses a release-metadata-driven audit instead of hard-coded partial checks.
+## v9.0.1 stability patch
 
-
-## 8.2.2 compact inspection changes
-- The organism card is about one-third smaller and anchored to the upper corner opposite the selected organism.
-- Ordinary taps inspect only when they land on the organism body; taps immediately around it now set movement targets.
-- Long press retains a wider biological scan radius.
-- The card closes after 3.5 seconds and never captures pointer input.
+- Separates Atlas pointer cancellation from pointer release, preventing cancelled iOS gestures from selecting a Genome Atlas node.
+- Sanitises migrated capacity, pressure, health, mass, level and generation values before morphology calculations.
+- Restores the correct basal origin gene when an older or partially malformed save identifies an origin but lacks its foundational innovation.
+- Makes morphology complexity calculations finite and defensive against malformed legacy save data.
+- Extends the release audit to verify v9.0.0 and v8.3.0 migration, morphology functions and Atlas cancellation routing.

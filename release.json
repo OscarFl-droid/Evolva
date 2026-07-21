@@ -1,10 +1,10 @@
 {
   "product": "EVOLVA",
-  "version": "8.2.2",
-  "cache": "evolva-v8-2-2",
-  "saveKey": "evolva-save-v8-2-2",
+  "version": "9.0.1",
+  "cache": "evolva-v9-0-1",
+  "saveKey": "evolva-save-v9-0-1",
   "engine": "fixed-timestep-system-engine",
   "simulationHz": 60,
   "legacySaveFloor": "7.0.0",
-  "name": "Phenotype Intelligence \u2014 Compact Inspection Patch"
+  "name": "Living Morphology"
 }
