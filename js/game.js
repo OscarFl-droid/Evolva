@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="9.0.1",BUILD_CACHE="evolva-v9-0-1";
+export const BUILD_VERSION="9.0.2",BUILD_CACHE="evolva-v9-0-2";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v9-0-1",LEGACY_SAVE_KEY="evolva-save-v9-0-0",OLDER_SAVE_KEYS=["evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v9-0-2",LEGACY_SAVE_KEY="evolva-save-v9-0-1",OLDER_SAVE_KEYS=["evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},

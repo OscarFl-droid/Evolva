@@ -1,11 +1,25 @@
 "use strict";
-import {EvolvaEngine} from "./engine.js?v=9.0.1";
-import {BUILD_VERSION,createGameRuntime} from "./game.js?v=9.0.1";
+import {EvolvaEngine} from "./engine.js?v=9.0.2";
+import {BUILD_VERSION,createGameRuntime} from "./game.js?v=9.0.2";
 
 const engine=new EvolvaEngine({stepHz:60,maxCatchUpSteps:5});
 const game=createGameRuntime(engine);
 window.EVOLVA=Object.freeze({version:BUILD_VERSION,diagnostics:game.diagnostics,save:game.save});
 engine.start();
+async function verifyDeployedBuild(){
+ try{
+  const response=await fetch(`./release.json?check=${Date.now()}`,{cache:"no-store"});
+  if(!response.ok)return;
+  const release=await response.json();
+  if(release.version!==BUILD_VERSION){
+   console.error(`EVOLVA deployment mismatch: page ${BUILD_VERSION}, release ${release.version}`);
+   const error=document.getElementById("error");
+   if(error){error.hidden=false;error.textContent=`Update mismatch detected (${BUILD_VERSION} / ${release.version}). Open reset-cache.html once.`}
+  }
+ }catch(error){console.warn("EVOLVA build verification unavailable:",error)}
+}
+verifyDeployedBuild();
+
 
 async function registerServiceWorker(){
  if(!("serviceWorker" in navigator)||!location.protocol.startsWith("http"))return;
