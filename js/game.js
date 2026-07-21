@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="8.2.2",BUILD_CACHE="evolva-v8-2-2";
+export const BUILD_VERSION="9.0.1",BUILD_CACHE="evolva-v9-0-1";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v8-2-2",LEGACY_SAVE_KEY="evolva-save-v8-2-1",OLDER_SAVE_KEYS=["evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_KEY="evolva-save-v9-0-1",LEGACY_SAVE_KEY="evolva-save-v9-0-0",OLDER_SAVE_KEYS=["evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -27,10 +27,28 @@ const AXES={
 };
 
 const ORIGINS=[
-{id:"vesicle",name:"PERMEABLE VESICLE",desc:"A flexible ancestor that exchanges water and chemicals rapidly.",axes:{adaptability:2,mobility:1},gene:"selective membrane",color:"#8cff9c"},
-{id:"crawler",name:"CONTRACTILE CRAWLER",desc:"A mechanically active ancestor built around directed movement.",axes:{power:1,mobility:2},gene:"contractile cortex",color:"#ffd66a"},
-{id:"colony",name:"CHEMICAL COLONY",desc:"A cooperative ancestor that senses and exchanges metabolites.",axes:{communication:2,cognition:1},gene:"chemical sensing",color:"#7de0ff"}
+{id:"vesicle",name:"PERMEABLE VESICLE",desc:"A plastic membrane lineage that survives through exchange, flexibility and rapid physiological tuning.",axes:{adaptability:2,mobility:1},gene:"selective membrane",color:"#8cff9c",affinity:{adaptability:1.14,resilience:1.06,mobility:1.04},bias:{adaptability:9,resilience:4,mobility:3},legacy:"Environmental changes become useful developmental information. Biome fit improves faster and migration stress leaves stronger adaptive pressure.",paths:["Osmotic Nomad","Armoured Generalist","Photosymbiotic Radiator"]},
+{id:"crawler",name:"CONTRACTILE CRAWLER",desc:"A mechanically organised lineage that turns energy into movement, capture and structural leverage.",axes:{power:1,mobility:2},gene:"contractile cortex",color:"#ffd66a",affinity:{power:1.13,mobility:1.10,resilience:1.03},bias:{power:8,mobility:7,resilience:2},legacy:"Movement and successful feeding reinforce mechanical development. Pursuit, engulfment and carcass use generate stronger power and mobility pressure.",paths:["Pursuit Predator","Armoured Ambusher","Scavenging Colossus"]},
+{id:"colony",name:"CHEMICAL COLONY",desc:"A distributed lineage that evolves through sensing, signalling, memory and stable biological partnerships.",axes:{communication:2,cognition:1},gene:"chemical sensing",color:"#7de0ff",affinity:{communication:1.15,cognition:1.11,innovation:1.06},bias:{communication:9,cognition:7,innovation:4},legacy:"Information and cooperation compound over time. Signalling, inspection and merging generate stronger cognitive, communicative and innovative pressure.",paths:["Quorum Architect","Symbiotic Intelligence","Chemical Strategist"]}
 ];
+function originDef(){return ORIGINS.find(o=>o.id===state.origin)||null}
+function originAffinity(axis){return originDef()?.affinity?.[axis]||1}
+function originBias(axis){return originDef()?.bias?.[axis]||0}
+function lineageStyle(){
+ const a=state.lineageActions||{},g=state.genes||[],scores={
+  predator:(a.hunts||0)*3+(a.engulfs||0)*2+(gene("predatory strike")?10:0)+derivedAxis("power"),
+  nomad:(a.migrations||0)*4+(a.harshCycles||0)*.6+(gene("adaptive radiation")?12:0)+derivedAxis("adaptability"),
+  symbiote:(a.mergers||0)*4+(a.signals||0)*2+(state.symbionts?.length||0)*5+derivedAxis("communication"),
+  architect:(a.niches||0)*3+(a.rests||0)*.4+(gene("quorum signal")?8:0)+derivedAxis("resilience"),
+  observer:(a.inspections||0)*1.5+(gene("threat model")?10:0)+derivedAxis("cognition"),
+  scavenger:(a.scavenges||0)*3+(gene("feeding groove")?5:0)+derivedAxis("power")*.4
+ };
+ const [id,score]=Object.entries(scores).sort((x,y)=>y[1]-x[1])[0];
+ const names={predator:"Predatory",nomad:"Nomadic",symbiote:"Symbiotic",architect:"Architectural",observer:"Observant",scavenger:"Scavenging"};
+ return{id,name:names[id],score};
+}
+function lineageIdentity(){const o=originDef(),s=lineageStyle();return o?`${s.name} ${o.name.split(" ").slice(-1)[0]}`:"Unformed lineage"}
+
 
 const FOOD={
  sugar:{color:"#ffb6a6",energy:18,axis:"power",name:"Sugar",imprint:"rapid metabolism"},
@@ -204,6 +222,12 @@ function atlasPointerUp(e){
  if(atlasPointers.size===0){atlasPointer=null;atlasDrag=null;$("livingAtlas").classList.remove("is-dragging");if(node)showAtlasTooltip(node,e);save()}
  else if(atlasPointers.size===1){const [id,p]=[...atlasPointers.entries()][0];atlasPointer=id;atlasDrag={x:p.x,y:p.y,vx:state.atlasView.x,vy:state.atlasView.y,moved:true}}
 }
+function atlasPointerCancel(e){
+ if(!atlasPointers.has(e.pointerId))return;e.preventDefault();
+ atlasPointers.delete(e.pointerId);atlasCanvas.releasePointerCapture?.(e.pointerId);
+ if(atlasPointers.size===0){atlasPointer=null;atlasDrag=null;$("livingAtlas").classList.remove("is-dragging")}
+ else{const [id,p]=[...atlasPointers.entries()][0];atlasPointer=id;atlasDrag={x:p.x,y:p.y,vx:state.atlasView.x,vy:state.atlasView.y,moved:true}}
+}
 function atlasWheel(e){e.preventDefault();atlasZoom(e.deltaY<0?1.12:.89,e.clientX,e.clientY)}
 function showAtlasTooltip(node,e){
  const box=$("atlasTooltip"),status=atlasStatus(node),missing=node.req.filter(r=>!gene(r));
@@ -298,7 +322,7 @@ function fresh(){
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
  atlasView:{x:430,y:360,zoom:1},
  dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,interactionTarget:null,lastTileKey:"",
- symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
+ symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},lineageActions:{hunts:0,engulfs:0,migrations:0,mergers:0,signals:0,inspections:0,niches:0,rests:0,scavenges:0,harshCycles:0},buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -326,6 +350,8 @@ function derivedAxis(axis){
  for(const id of state.genes){const node=ATLAS.find(n=>n.id===id);if(node?.axis===axis)v+=node.tier*.35}
  for(const id of state.symbionts||[]){const m=moduleById(id);if(m?.axis===axis)v+=.45}
  const diet=dietAxisBonus(axis);v+=Math.min(1.5,diet*.035);
+ // Origin affinity is a permanent architecture, not a temporary starting bonus.
+ v=1+(v-1)*originAffinity(axis);
  return Math.round(v*10)/10;
 }
 function capacityEffects(axis){const v=derivedAxis(axis),n=Math.max(0,v-1);return{
@@ -346,12 +372,12 @@ function phenotype(){
  defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1)*(1+armour*.12),
  waterUse:(gene("selective membrane")?.82:1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025)),
  detection:130*(1+(derivedAxis("cognition")-1)*.08)*(gene("chemical sensing")?1.25:1)*(gene("electroreception")?1.55:1),
- foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1),
+ foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1)*(state.origin==="crawler"?1.08:1),
  interactionRange:90*(gene("surface exchange")?1.2:1)*(1+(derivedAxis("communication")-1)*.04)*(1+signal*.1),
- plasticity:1+(derivedAxis("adaptability")-1)*.06,
+ plasticity:(1+(derivedAxis("adaptability")-1)*.06)*(state.origin==="vesicle"?1.10:1),
  innovation:1+(derivedAxis("innovation")-1)*.045,
- communication:1+(derivedAxis("communication")-1)*.05,
- cognition:1+(derivedAxis("cognition")-1)*.06
+ communication:(1+(derivedAxis("communication")-1)*.05)*(state.origin==="colony"?1.08:1),
+ cognition:(1+(derivedAxis("cognition")-1)*.06)*(state.origin==="colony"?1.06:1)
  };
 }
 function fit(){
@@ -368,6 +394,60 @@ function cameraScale(){const base=1/Math.pow(state.mass,.2);return clamp(base*EC
 function cameraCenter(){return{x:state.x+(state.camera?.lookX||0),y:state.y+(state.camera?.lookY||0)}}
 function focusEvent(x,y,duration=180){if(!state.camera)return;state.camera.eventX=x;state.camera.eventY=y;state.camera.eventTimer=Math.max(state.camera.eventTimer||0,duration)}
 function radius(m=state.mass){return 10+Math.log2(m+1)*5}
+function morphologyComplexity(){
+ const level=Math.max(1,Number(state.level)||1),epochs=Math.max(0,Number(state.completedEpochs)||0);
+ const geneScore=(state.genes||[]).reduce((sum,id)=>sum+(ATLAS.find(n=>n.id===id)?.tier||1)*2.2,0);
+ const capacityScore=Object.keys(AXES).reduce((sum,a)=>sum+Math.max(0,Number(derivedAxis(a))||1)-1,0)*.72;
+ const score=level*1.4+geneScore+capacityScore+(state.symbionts?.length||0)*3+epochs*2;
+ return Math.max(0,Math.round(Number.isFinite(score)?score:0));
+}
+function morphologyStage(){const c=morphologyComplexity();return c<8?0:c<18?1:c<32?2:c<50?3:c<72?4:5}
+function morphologyName(){
+ const stage=morphologyStage(),style=lineageStyle().id;
+ const base=["Ancestral Cell","Differentiated Microform","Specialised Organism","Integrated Body Plan","Chitinous Ascendant","Brood Apex"][stage];
+ const suffix={predator:"Hunter",nomad:"Drifter",symbiote:"Collective",architect:"Niche-Builder",observer:"Seer",scavenger:"Reclaimer"}[style]||"Lineage";
+ return `${base} · ${suffix}`;
+}
+function drawMorphology(x,y,r,main,isPlayer=true,entity=null){
+ const stage=isPlayer?morphologyStage():Math.min(4,Math.max(0,Math.floor(Math.log2((entity?.mass||1)+1))));
+ const phase=isPlayer?state.tick*.035:(entity?.phase||0),dark="#10271f",light="#e8ffda";
+ const has=id=>isPlayer?gene(id):false;
+ const sym=isPlayer?(state.symbionts||[]):entity?.module?[entity.module]:[];
+ ctx.save();ctx.translate(x,y);ctx.rotate(isPlayer?Math.atan2(state.vy,state.vx||.001)*.12:Math.atan2(entity?.vy||0,entity?.vx||.001)*.16);
+ const breathe=1+Math.sin(phase)*.025;ctx.scale(breathe,1/breathe);
+ ctx.shadowBlur=isPlayer?13:6;ctx.shadowColor=main;
+ // Late morphology becomes an original chitinous swarm body, assembled from progression.
+ if(stage>=4){
+   ctx.fillStyle=main;ctx.beginPath();ctx.moveTo(r*1.35,0);ctx.bezierCurveTo(r*.55,-r*1.05,-r*.7,-r*.9,-r*1.25,-r*.25);ctx.bezierCurveTo(-r*.85,r*.85,r*.55,r*1.05,r*1.35,0);ctx.fill();
+   ctx.fillStyle="#18251f";for(let i=0;i<4;i++){const px=-r*.55+i*r*.32;ctx.beginPath();ctx.ellipse(px,0,r*.28,r*.78,0,0,Math.PI*2);ctx.fill()}
+   ctx.strokeStyle=light;ctx.lineWidth=Math.max(1,r*.07);for(let i=-2;i<=2;i++){const px=i*r*.27;ctx.beginPath();ctx.moveTo(px,-r*.62);ctx.lineTo(px-r*.16,-r*(1.08+Math.abs(i)*.08));ctx.stroke()}
+   // Hooked forelimbs / feeding claws.
+   ctx.strokeStyle=main;ctx.lineWidth=Math.max(2,r*.13);for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(r*.55,side*r*.35);ctx.quadraticCurveTo(r*1.25,side*r*.75,r*1.05,side*r*1.25);ctx.quadraticCurveTo(r*.75,side*r*1.05,r*.68,side*r*.74);ctx.stroke()}
+   if(stage>=5){
+     // Brood buds and dorsal crown make the final body unmistakably transformed.
+     for(let i=-1;i<=1;i++)circle(-r*.82+i*r*.22,-r*.54-Math.abs(i)*r*.12,r*.18,main,light,1);
+     ctx.strokeStyle="#d8b5ff";ctx.globalAlpha=.7+.2*Math.sin(phase*1.7);ctx.beginPath();ctx.arc(-r*.1,0,r*.56,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+   }
+ }else if(stage===3){
+   ctx.fillStyle=main;ctx.beginPath();for(let i=0;i<12;i++){const a=i/12*Math.PI*2,rr=r*(i%2?1:.82);const px=Math.cos(a)*rr,py=Math.sin(a)*rr;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fill();
+ }else if(stage===2){
+   ctx.fillStyle=main;ctx.beginPath();ctx.ellipse(0,0,r*1.15,r*.82,0,0,Math.PI*2);ctx.fill();
+ }else{circle(0,0,r,main,light,isPlayer?2:1)}
+ ctx.shadowBlur=0;
+ // Progressive anatomy, all driven by actual genes.
+ if(stage>=1||has("chemical sensing")){ctx.strokeStyle=light;for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(-r*.72,side*r*.18);ctx.quadraticCurveTo(-r*1.22,side*r*.45,-r*1.45,side*r*.2);ctx.stroke()}}
+ if(has("cilia")){ctx.strokeStyle=light;for(let i=-4;i<=4;i++){ctx.beginPath();ctx.moveTo(i*r*.18,r*.72);ctx.lineTo(i*r*.21,r*(1.05+(i%2)*.08));ctx.stroke()}}
+ if(has("pseudopods")||stage>=3){ctx.fillStyle=main;for(const side of [-1,1])ctx.fillRect(-r*.15+side*r*.75,r*.42,r*.7*side,r*.16)}
+ if(has("armoured cortex")||stage>=4){ctx.strokeStyle="#f2d4a8";ctx.lineWidth=Math.max(2,r*.1);ctx.setLineDash([r*.28,r*.12]);ctx.beginPath();ctx.arc(0,0,r*.84,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
+ if(has("toxin organelle")){ctx.shadowBlur=8;ctx.shadowColor="#dba0ff";circle(-r*.18,r*.3,r*.22,"#dba0ff","#f5ddff",1);ctx.shadowBlur=0}
+ if(has("photosymbiosis")){for(let i=0;i<4;i++){const a=i/4*Math.PI*2;circle(Math.cos(a)*r*.48,Math.sin(a)*r*.48,r*.12,"#ffd66a")}}
+ if(has("segmented body")&&stage<4){ctx.strokeStyle=dark;ctx.lineWidth=Math.max(1,r*.08);for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*r*.25,-r*.65);ctx.lineTo(i*r*.25,r*.65);ctx.stroke()}}
+ // Sensor cluster replaces the old static cartoon eye as complexity rises.
+ const eyes=stage>=4?3:1;for(let i=0;i<eyes;i++){const ey=-r*.26+i*r*.26-(eyes-1)*r*.13;circle(r*.48,ey,r*(stage>=4?.11:.16),light);circle(r*.51,ey,r*.045,"#06100c")}
+ sym.forEach((id,i)=>drawModuleAt(0,0,r,id,i,sym.length));
+ if((isPlayer&&(moduleCount("pulse")||has("electroreception")))){ctx.strokeStyle="#7de0ff";ctx.globalAlpha=.45+.2*Math.sin(state.tick*.08);ctx.beginPath();ctx.arc(0,0,r*1.45,0,Math.PI*2);ctx.stroke()}
+ ctx.restore();
+}
 
 function terrainType(gx,gy){
  let n=(Math.imul(gx,73856093)^Math.imul(gy,19349663)^Math.imul(state.biome+1,83492791))>>>0;
@@ -587,16 +667,16 @@ function resolveIntent(intent){
  const force=encounterModifier("power")+Math.floor(size*2)+(gene("pseudopods")?2:0);
  const p=d20()+(intent==="signal"||intent==="merge"?chem:force),o=d20()+Math.floor(near.aggression*5)+Math.floor(near.mass/state.mass*2);
  let title="",text="",icon="⌁",good=true;
- if(intent==="signal"){
+ if(intent==="signal"){state.lineageActions.signals++;
    if(p>=o+3){const gain=6+moduleCount("signal")*2;state.energy=clamp(state.energy+gain);addPressure("communication",2);near.state="inspectPlayer";near.stateTimer=260;title="RECIPROCAL SIGNAL";text=`Molecular patterns matched. Metabolites and hazard information were exchanged, restoring ${gain} energy.`;icon="⇄";addEffect("nutrient",near.x,near.y,70,1,300,"shared")}
    else if(p>=o-2){title="UNCERTAIN RECOGNITION";text="Both organisms circled and sampled each other's chemistry, but neither committed to exchange.";icon="?"
    }else{const harm=Math.round((4+near.aggression*8)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title="CHEMICAL REJECTION";text=`The signal triggered a defensive secretion. You lost ${harm} health and retreated.`;icon="†";good=false;addEffect("toxin",near.x,near.y,85,near.aggression,360,"other")}
- }else if(intent==="merge"){
+ }else if(intent==="merge"){state.lineageActions.mergers++;
    const compatibility=chem+Math.floor((1-Math.abs(1-size))*4)+(near.curiosity>.55?2:0);
    if(p+compatibility>=o+7){integrateModule(near,true);removeOrganism(near);state.ecosystem.mergers++;title="STABLE ENDOSYMBIOSIS";text="Membranes remained fused. The organism persists as a living functional module and is now visible in your body.";icon="◉"}
    else if(p+compatibility>=o+1){state.health=clamp(state.health-3);state.energy=clamp(state.energy+5);addPressure("innovation",1.5);near.state="fleePlayer";near.stateTimer=300;title="TRANSIENT FUSION";text="The membranes exchanged cytoplasm and genes but separated before stable integration. Both organisms were altered.";icon="∞"}
    else{const stolen=near.mass>state.mass*.9&&Math.random()<.45&&loseModule(near);const harm=Math.round((7+near.mass/state.mass*6)/phenotype().defense);state.health=clamp(state.health-harm);fleeFrom(near);title=stolen?"REVERSE ASSIMILATION":"FUSION REJECTED";text=stolen?`The larger organism reversed the membrane flow, captured one of your living modules and inflicted ${harm} damage.`:`Fusion destabilised your membrane, causing ${harm} damage and forced retreat.`;icon="◐";good=false}
- }else if(intent==="engulf"){
+ }else if(intent==="engulf"){state.lineageActions.engulfs++;
    if(p>=o){const killed=p>=o+6||near.health<35;near.health-=Math.round(12*phenotype().force);addPressure("power",2.2);
      if(killed||near.health<=0){const integrated=near.module&&Math.random()<clamp(.18+derivedAxis("innovation")*.045+derivedAxis("adaptability")*.012,0,0.82)?integrateModule(near):false;removeOrganism(near);state.energy=clamp(state.energy+(integrated?8:18));title=integrated?"LIVING ABSORPTION":"ENGULFMENT";text=integrated?"The prey survived internalisation and became a functional body module.":"The organism was enclosed, dismantled and metabolised for energy.";icon=integrated?"◉":"∨"}
      else{near.state="fleePlayer";near.stateTimer=360;title="PARTIAL ENGULFMENT";text="The target tore free, injured and chemically marked. It is now fleeing.";icon="◔";addEffect("alarm",near.x,near.y,110,1,320,"other")}
@@ -661,7 +741,7 @@ function ecologyTick(){
  if(tile.rough)addPressure("mobility",.2);
  if((gene("photosymbiosis")||moduleCount("light"))&&b.light>55)state.energy=clamp(state.energy+2.4+moduleCount("light")*1.2);
  if(gene("thermal engine")&&(b.temp>45||b.temp<0))state.energy=clamp(state.energy+2.8);
- const lowFit=Math.max(0,35-fit());if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
+ const lowFit=Math.max(0,35-fit());if(lowFit>0){state.lineageActions.harshCycles+=.01}if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
  if(state.energy<5||state.water<5)damage(3.5);
  Object.entries(b.pressure).forEach(([k,v])=>addPressure(k,v*.04));
  state.cycle++;
@@ -698,7 +778,7 @@ function renderEpochInventory(){
  document.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>toggleEpochFeed(b.dataset.feed));$("feedCount").textContent=`${feedTotal()} / 6`
 }
 function scoreNode(node){
- let s=derivedAxis(node.axis)*2+(state.pressures[node.axis]||0)*.45+(BIOMES[state.biome].pressure[node.axis]||0)*4+dietAxisBonus(node.axis)*.9;
+ let s=derivedAxis(node.axis)*2+(state.pressures[node.axis]||0)*.45+(BIOMES[state.biome].pressure[node.axis]||0)*4+dietAxisBonus(node.axis)*.9+originBias(node.axis);
  for(const [type,n] of Object.entries(state.epochFeed))if(FOOD[type].axis===node.axis)s+=n*10;
  s+=node.req.filter(gene).length*4;s-=node.tier*3;
  return s
@@ -744,13 +824,13 @@ function completeEpoch(id){
  state.epochFeed={};state.epochForecast=[];
  Object.keys(state.pressures).forEach(k=>state.pressures[k]*=.28);
  Object.keys(state.dietMemory).forEach(k=>state.dietMemory[k]*=.42);
- log(`Major evolution fixed: ${node.name}. ${node.effect}.`);toast(node.name.toUpperCase());
+ log(`Major evolution fixed: ${node.name}. ${node.effect}.`);toast(`NEW MORPHOLOGY · ${node.name.toUpperCase()}`);for(let i=0;i<22;i++)state.particles.push({x:state.x+rand(-20,20),y:state.y+rand(-20,20),vx:rand(-.7,.7),vy:rand(-.7,.7),life:30,size:rand(2,5),color:ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c"});focusEvent(state.x,state.y,90);
  $("epochModal").classList.remove("visible");renderAll();save();
  if(state.pendingEpochs>0)setTimeout(openEpoch,350)
 }
 function migrate(){
  if(state.energy<10){toast("NOT ENOUGH ENERGY");return}
- state.energy-=10;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;if(state.camera){state.camera.lookX=0;state.camera.lookY=0;state.camera.eventTimer=0}state.effects=[];state.resources=[];spawnFood(ECO_CONFIG.targetFood);populate();
+ state.energy-=10;state.lineageActions.migrations++;state.biome=(state.biome+1)%BIOMES.length;state.x=WORLD/2;state.y=WORLD/2;state.target=null;if(state.camera){state.camera.lookX=0;state.camera.lookY=0;state.camera.eventTimer=0}state.effects=[];state.resources=[];spawnFood(ECO_CONFIG.targetFood);populate();
  Object.entries(BIOMES[state.biome].pressure).forEach(([a,v])=>addPressure(a,v*2));
  addXP(15,`Migration into ${BIOMES[state.biome].name}`);renderAll();save()
 }
@@ -860,17 +940,11 @@ function drawOrganism(o){
 }
 function drawParticles(){for(const q of state.particles){if(!visible(q.x,q.y))continue;ctx.save();ctx.globalAlpha=clamp(q.life/30,0,1);circle(sx(q.x),sy(q.y),q.size*cameraScale(),q.color);ctx.restore()}}
 function drawPlayer(){
- const x=sx(state.x),y=sy(state.y),r=Math.max(11,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c",dark="#14382a",light="#e8ffda";
- ctx.save();ctx.shadowBlur=12;ctx.shadowColor=main;circle(x,y,r,main,light,2);ctx.shadowBlur=0;circle(x-r*.22,y-r*.05,r*.42,dark);circle(x+r*.35,y-r*.28,r*.16,light);circle(x+r*.38,y-r*.28,r*.06,"#06100c");
- if(gene("chemical sensing")){ctx.strokeStyle=light;ctx.beginPath();ctx.moveTo(x-r*.7,y);ctx.quadraticCurveTo(x-r*1.25,y-r*.25,x-r*1.55,y-r*.05);ctx.stroke()}
- if(gene("cilia")){ctx.strokeStyle=light;for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(x+i*r*.22,y+r*.78);ctx.lineTo(x+i*r*.26,y+r*1.15+(i%2)*2);ctx.stroke()}}
- if(gene("pseudopods")){ctx.fillStyle=light;ctx.fillRect(x-r*1.35,y+r*.1,r*.65,r*.18);ctx.fillRect(x+r*.7,y+r*.28,r*.62,r*.18)}
- if(gene("armoured cortex")){ctx.strokeStyle="#f5ead5";ctx.lineWidth=3;ctx.setLineDash([r*.35,r*.12]);ctx.beginPath();ctx.arc(x,y,r*.9,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
- state.symbionts.forEach((id,i)=>drawModuleAt(x,y,r,id,i,state.symbionts.length));
- if(moduleCount("pulse")||gene("electroreception")){ctx.strokeStyle="#7de0ff";ctx.globalAlpha=.45+.2*Math.sin(state.tick*.08);ctx.beginPath();ctx.arc(x,y,r*1.45,0,Math.PI*2);ctx.stroke()}
- ctx.restore();
+ const x=sx(state.x),y=sy(state.y),r=Math.max(11,radius()*Math.pow(cameraScale(),.2)),main=ORIGINS.find(o=>o.id===state.origin)?.color||"#8cff9c";
+ drawMorphology(x,y,r,main,true,null);
  if(state.target){const tx=sx(state.target.x),ty=sy(state.target.y);ctx.strokeStyle="rgba(255,255,255,.75)";ctx.beginPath();ctx.arc(tx,ty,9,0,Math.PI*2);ctx.stroke()}
 }
+
 function draw(){drawWorld();drawCarcasses();drawFood();state.organisms.forEach(drawOrganism);drawParticles();drawPlayer()}
 
 function bar(id,v,c){const e=$(id);e.style.width=clamp(v)+"%";e.style.background=v<24?"var(--red)":c}
@@ -882,7 +956,7 @@ function renderMeters(){
 function renderLineage(){
  atlasDirty=true;const o=ORIGINS.find(x=>x.id===state.origin);
  $("originLabel").textContent=o?.name||"UNFORMED ANCESTOR";$("bodyPlanLabel").textContent=state.bodyPlan.toUpperCase();
- $("lineageMeta").textContent=`Generation ${state.generation} · Epoch ${state.completedEpochs}`;
+ $("lineageMeta").textContent=`Generation ${state.generation} · Epoch ${state.completedEpochs} · Complexity ${morphologyComplexity()} · ${morphologyName()}`;
  $("lineageLevel").textContent=state.level;$("xpText").textContent=`${Math.floor(state.xp)} / ${xpNeeded()}`;
  bar("lineageXpBar",state.xp/xpNeeded()*100,"var(--purple)");
  $("epochHint").textContent=state.pendingEpochs>0?`${state.pendingEpochs} major evolution${state.pendingEpochs>1?"s":""} ready`:`Next major evolution at level ${Math.ceil((state.level+1)/5)*5}`;
@@ -891,7 +965,7 @@ function renderLineage(){
  document.querySelectorAll("[data-axis]").forEach(b=>b.onclick=()=>spendAdapt(b.dataset.axis));
  const p=phenotype();$("phenotypeCards").innerHTML=[["Locomotion",`${p.speed.toFixed(2)}× movement performance`],["Mechanical force",`${p.force.toFixed(2)}× feeding and attack force`],["Stress defence",`${p.defense.toFixed(2)}× injury buffering`],["Ecological fit",`${Math.round(fit())}% in ${BIOMES[state.biome].name}`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
  $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("");
- $("atlasSummary").textContent=`${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · biome pressure is illuminating nearby branches`;
+ $("atlasSummary").textContent=`${lineageIdentity()} · ${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · origin resonance favours ${Object.keys(originDef()?.bias||{}).slice(0,3).map(a=>AXES[a].name).join(" / ")}`;
 }function renderInventory(){
  const recent=state.dietHistory.slice(-6).map(t=>FOOD[t].name).join(" → ")||"No recent feeding";
  const strongest=Object.entries(state.dietMemory).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${FOOD[k].name} ${v.toFixed(1)}`).join(" · ");
@@ -976,7 +1050,7 @@ function bind(){
  atlasCanvas.addEventListener("pointerdown",atlasPointerDown,{passive:false});
  atlasCanvas.addEventListener("pointermove",atlasPointerMove,{passive:false});
  atlasCanvas.addEventListener("pointerup",atlasPointerUp,{passive:false});
- atlasCanvas.addEventListener("pointercancel",atlasPointerUp,{passive:false});
+ atlasCanvas.addEventListener("pointercancel",atlasPointerCancel,{passive:false});
  atlasCanvas.addEventListener("wheel",atlasWheel,{passive:false});
  $("atlasHomeBtn").onclick=()=>{atlasFocusCurrent();save();drawAtlas()};
  $("atlasMinusBtn").onclick=()=>{atlasZoom(.82);drawAtlas()};
@@ -993,9 +1067,14 @@ function load(){
  if(!raw)return false;
  try{
   const b=fresh(),x=JSON.parse(raw);state=Object.assign(b,x);
-  state.axes=Object.assign(b.axes,x.axes||{});state.pressures=Object.assign(b.pressures,x.pressures||{});
-  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
+  state.axes=Object.assign(b.axes,x.axes||{});Object.keys(AXES).forEach(a=>state.axes[a]=Math.max(1,Number(state.axes[a])||1));
+  state.pressures=Object.assign(b.pressures,x.pressures||{});Object.keys(AXES).forEach(a=>state.pressures[a]=Math.max(0,Number(state.pressures[a])||0));
+  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});Object.keys(AXES).forEach(a=>state.lifetimePressure[a]=Math.max(0,Number(state.lifetimePressure[a])||0));state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
   state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
+  if(!ORIGINS.some(o=>o.id===state.origin))state.origin=null;
+  const origin=ORIGINS.find(o=>o.id===state.origin);if(origin&&!state.genes.includes(origin.gene))state.genes.unshift(origin.gene);
+  state.level=Math.max(1,Math.floor(Number(state.level)||1));state.mass=Math.max(.2,Number(state.mass)||1);state.generation=Math.max(1,Math.floor(Number(state.generation)||1));
+  state.energy=clamp(Number(state.energy)||0);state.water=clamp(Number(state.water)||0);state.health=clamp(Number(state.health)||0);
   state.resources=Array.isArray(x.resources)?x.resources.filter(r=>r&&FOOD[r.type]&&Number.isFinite(r.x)&&Number.isFinite(r.y)).map(r=>Object.assign({phase:0},r)):[];
   state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
   state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];
@@ -1004,7 +1083,7 @@ function load(){
   state.patches=Array.isArray(x.patches)?x.patches.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>Object.assign(makePatch("microbial",p.x,p.y),p)).slice(0,ECO_CONFIG.maxPatches):[];
   state.carcasses=Array.isArray(x.carcasses)?x.carcasses.filter(c=>c&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&Number.isFinite(c.nutrition)).map(c=>Object.assign({age:0,phase:0,biome:state.biome},c)).slice(0,ECO_CONFIG.maxCarcasses):[];
   state.weather=x.weather&&WEATHER.some(w=>w.id===x.weather.id)?Object.assign(makeWeather(x.weather.id),x.weather):makeWeather();
-  state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});
+  state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});state.lineageActions=Object.assign(b.lineageActions,x.lineageActions||{});
   state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
   state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
@@ -1012,7 +1091,7 @@ function load(){
   return true;
  }catch(e){return false}
 }
-function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small>Begins with ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
+function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small><strong>Permanent architecture:</strong> ${o.legacy}<br><strong>Begins:</strong> ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}<br><strong>Possible identities:</strong> ${o.paths.join(" · ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
 function start(newLineage=false){
  if(newLineage){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
  if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
