@@ -37,4 +37,5 @@ fail(!files.game.includes('pointercancel",atlasPointerUp'),"Atlas pointer cancel
 fail(files.game.includes('pointercancel",atlasPointerCancel'),"Atlas cancellation handler is not bound");
 fail(files.game.includes("box.hidden=false;\n const rect=atlasCanvas.getBoundingClientRect(),bw=box.offsetWidth"),"Atlas tooltip is not measured before positioning");
 if(errors.length){console.error(`EVOLVA ${version} audit failed:\n- ${errors.join("\n- ")}`);process.exit(1)}
+if(/\)\?\.[0-9]/.test(files.game))throw new Error("Safari parser hazard: ternary written as optional numeric chaining");
 console.log(`EVOLVA ${version} release audit passed (${Object.keys(files).length} source files, ${ids.length} DOM ids, ${new Set(refs).size} DOM references).`);
