@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="10.3.1",BUILD_CACHE="evolva-v10-3-1";
+export const BUILD_VERSION="10.3.2",BUILD_CACHE="evolva-v10-3-2";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_SCHEMA=4,SAVE_KEY="evolva-save-v10-3-1",BACKUP_SAVE_KEY="evolva-save-v10-3-1-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-0",OLDER_SAVE_KEYS=["evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_SCHEMA=5,SAVE_KEY="evolva-save-v10-3-2",BACKUP_SAVE_KEY="evolva-save-v10-3-2-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-1",OLDER_SAVE_KEYS=["evolva-save-v10-3-0","evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -1261,7 +1261,7 @@ function bind(){
  $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active");$("atlasTooltip").hidden=true;atlasDirty=true;if(t.dataset.tab==="lineage")requestAnimationFrame(drawAtlas)})
 }
-function save(){try{state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;const encoded=JSON.stringify(state);const existing=localStorage.getItem(SAVE_KEY);if(existing)localStorage.setItem(BACKUP_SAVE_KEY,existing);localStorage.setItem(SAVE_KEY,encoded);$("saveStatus").textContent="saved · schema 4";setTimeout(()=>$("saveStatus").textContent="autosaving",900)}catch(e){$("saveStatus").textContent="save unavailable"}}
+function save(){try{state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;const encoded=JSON.stringify(state);const existing=localStorage.getItem(SAVE_KEY);if(existing)localStorage.setItem(BACKUP_SAVE_KEY,existing);localStorage.setItem(SAVE_KEY,encoded);$("saveStatus").textContent="saved · schema 5";setTimeout(()=>$("saveStatus").textContent="autosaving",900)}catch(e){$("saveStatus").textContent="save unavailable"}}
 function load(){
  const keys=[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS];
  for(const sourceKey of keys){
@@ -1287,7 +1287,7 @@ function load(){
    state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
    state.patches=Array.isArray(x.patches)?x.patches.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>Object.assign(makePatch("microbial",p.x,p.y),p)).slice(0,ECO_CONFIG.maxPatches):[];state.carcasses=Array.isArray(x.carcasses)?x.carcasses.filter(c=>c&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&Number.isFinite(c.nutrition)).map(c=>Object.assign({age:0,phase:0,biome:state.biome},c)).slice(0,ECO_CONFIG.maxCarcasses):[];
    state.weather=x.weather&&WEATHER.some(w=>w.id===x.weather.id)?Object.assign(makeWeather(x.weather.id),x.weather):makeWeather();state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});state.lineageActions=Object.assign(b.lineageActions,x.lineageActions||{});
-   state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;state.migrationReport=sourceKey===SAVE_KEY?"Current save verified · schema 4":sourceKey===BACKUP_SAVE_KEY?"Recovered from rolling backup · schema 4":`Migrated from ${sourceKey} · schema 4`;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
+   state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;state.migrationReport=sourceKey===SAVE_KEY?"Current save verified · schema 5":sourceKey===BACKUP_SAVE_KEY?"Recovered from rolling backup · schema 5":`Migrated from ${sourceKey} · schema 5`;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
    state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};checkDevelopmentalThresholds(false);return true;
   }catch(e){try{localStorage.setItem(`${SAVE_KEY}-corrupt-${sourceKey}-${Date.now()}`,raw)}catch{}}
  }
@@ -1301,13 +1301,17 @@ function start(newLineage=false){
 }
 export function createGameRuntime(engine){
  applyBuildIdentity();
+ // Bind launch controls before the heavier canvas/UI setup. A non-critical
+ // initialization fault must never leave the first screen unresponsive.
+ const continueButton=$("continue"),newGameButton=$("newGame");
+ if(!continueButton||!newGameButton)throw new Error("Launch controls are missing from this deployment");
+ continueButton.onclick=()=>start(false);
+ newGameButton.onclick=()=>start(true);
  bind();
  engine.addSystem({id:"simulation",priority:10,update:simulateStep});
  engine.addRenderer({id:"world",priority:10,render:()=>draw()});
  engine.addRenderer({id:"atlas",priority:20,render:({now})=>drawAtlas(now)});
  engine.events.on("engine:error",error=>showRuntimeError(error));
- $("continue").onclick=()=>start(false);
- $("newGame").onclick=()=>start(true);
  return{
   start,
   stop:()=>engine.stop(),

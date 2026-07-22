@@ -1,11 +1,22 @@
 "use strict";
-import {EvolvaEngine} from "./engine.js?v=10.3.1";
-import {BUILD_VERSION,createGameRuntime} from "./game.js?v=10.3.1";
+import {EvolvaEngine} from "./engine.js?v=10.3.2";
+import {BUILD_VERSION,createGameRuntime} from "./game.js?v=10.3.2";
 
 const engine=new EvolvaEngine({stepHz:60,maxCatchUpSteps:5});
-const game=createGameRuntime(engine);
-window.EVOLVA=Object.freeze({version:BUILD_VERSION,diagnostics:game.diagnostics,save:game.save});
-engine.start();
+let game=null;
+function showBootFailure(error){
+ console.error("EVOLVA startup failure:",error);
+ const box=document.getElementById("error");
+ if(box){box.hidden=false;box.textContent=`Build ${BUILD_VERSION} could not finish startup: ${error?.message||error||"unknown error"}. Open reset-cache.html once, then reload.`}
+}
+try{
+ game=createGameRuntime(engine);
+ window.EVOLVA=Object.freeze({version:BUILD_VERSION,diagnostics:game.diagnostics,save:game.save});
+ engine.start();
+}catch(error){
+ showBootFailure(error);
+ window.EVOLVA=Object.freeze({version:BUILD_VERSION,startupError:String(error?.message||error||"unknown")});
+}
 async function verifyDeployedBuild(){
  try{
   const response=await fetch(`./release.json?check=${Date.now()}`,{cache:"no-store"});
