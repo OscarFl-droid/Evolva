@@ -3,27 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="evolva-build" content="10.3.4">
+<meta name="evolva-build" content="10.3.5">
 <script>
-window.__EVOLVA_EXPECTED_BUILD__="10.3.4";
+window.__EVOLVA_EXPECTED_BUILD__="10.3.5";
 </script>
 <meta name="theme-color" content="#06100c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>EVOLVA v10.3.4</title>
-<link rel="manifest" href="manifest.webmanifest?v=10.3.4">
+<title>EVOLVA v10.3.5</title>
+<link rel="manifest" href="manifest.webmanifest?v=10.3.5">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=10.3.4">
+<link rel="stylesheet" href="styles.css?v=10.3.5">
 </head>
 <body>
 <div id="start" class="modal visible">
   <div class="modal-card">
-    <h1>EVOLVA <small data-build-version>v10.3.4</small></h1>
+    <h1>EVOLVA <small data-build-version>v10.3.5</small></h1>
     <p class="tag">LINEAGE ENGINE</p>
     <p>Guide one lineage through ecology, nutrition, behaviour and major evolutionary epochs.</p>
     <button id="continue" class="primary" type="button" onclick="window.evolvaLaunch('continue')">CONTINUE LINEAGE</button>
     <button id="newGame" type="button" onclick="window.evolvaLaunch('new')">CREATE NEW LINEAGE</button>
-    <p class="fine">Fixed-step simulation · autosave · offline · build <span data-build-number>10.3.4</span></p>
+    <p class="fine">Fixed-step simulation · autosave · offline · build <span data-build-number>10.3.5</span></p>
     <div id="error" class="error" hidden></div>
   </div>
 </div>
@@ -68,7 +68,7 @@ window.__EVOLVA_EXPECTED_BUILD__="10.3.4";
 <main class="app">
   <header class="hud panel">
     <div>
-      <h1>EVOLVA <small data-build-version>v10.3.4</small></h1>
+      <h1>EVOLVA <small data-build-version>v10.3.5</small></h1>
       <span id="biomeLabel">TIDAL POOL</span>
     </div>
     <div class="hud-right">
@@ -227,61 +227,40 @@ window.__EVOLVA_EXPECTED_BUILD__="10.3.4";
   var errorBox=document.getElementById("error");
   var continueButton=document.getElementById("continue");
   var newButton=document.getElementById("newGame");
-  function show(message){
-    if(!errorBox)return;
-    errorBox.hidden=false;
-    errorBox.textContent=message;
-  }
+  function show(message){if(errorBox){errorBox.hidden=false;errorBox.textContent=message;}}
   function setLoading(loading){
     if(continueButton)continueButton.textContent=loading&&pendingIntent==="continue"?"LOADING LINEAGE…":"CONTINUE LINEAGE";
     if(newButton)newButton.textContent=loading&&pendingIntent==="new"?"PREPARING LINEAGE…":"CREATE NEW LINEAGE";
   }
   window.evolvaLaunch=function(intent){
-    pendingIntent=intent;
-    setLoading(true);
-    if(runtimeReady && window.__EVOLVA_START__){
-      try{ window.__EVOLVA_START__(intent==="new"); }
-      catch(error){ show("Launch failed: "+(error&&error.message?error.message:String(error))); setLoading(false); }
-      return;
+    pendingIntent=intent;setLoading(true);
+    if(runtimeReady&&typeof window.__EVOLVA_START__==="function"){
+      try{window.__EVOLVA_START__(intent==="new");pendingIntent=null;if(errorBox)errorBox.hidden=true;}
+      catch(error){show("Launch failed: "+(error&&error.message?error.message:String(error)));}
+      setLoading(false);return;
     }
-    show("Loading EVOLVA 10.3.4…");
+    show("Loading EVOLVA 10.3.5…");
   };
   window.addEventListener("evolva-runtime-ready",function(){
     runtimeReady=true;
-    if(!pendingIntent){ setLoading(false); if(errorBox)errorBox.hidden=true; return; }
-    var intent=pendingIntent;
-    pendingIntent=null;
-    try{ window.__EVOLVA_START__(intent==="new"); if(errorBox)errorBox.hidden=true; }
-    catch(error){ show("Launch failed: "+(error&&error.message?error.message:String(error))); }
+    if(!pendingIntent){setLoading(false);if(errorBox)errorBox.hidden=true;return;}
+    var intent=pendingIntent;pendingIntent=null;
+    try{window.__EVOLVA_START__(intent==="new");if(errorBox)errorBox.hidden=true;}
+    catch(error){show("Launch failed: "+(error&&error.message?error.message:String(error)));}
     setLoading(false);
   });
   window.addEventListener("evolva-runtime-failed",function(event){
-    show("Startup failed: "+((event.detail&&event.detail.message)||event.detail||"unknown error"));
-    setLoading(false);
+    var detail=event.detail||{};
+    show("Startup failed"+(detail.stage?" during "+detail.stage:"")+": "+(detail.message||detail||"unknown error"));setLoading(false);
   });
-  async function cleanBoot(){
-    try{
-      if("serviceWorker" in navigator){
-        var regs=await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(function(reg){return reg.unregister();}));
-      }
-      if("caches" in window){
-        var keys=await caches.keys();
-        await Promise.all(keys.filter(function(key){return key.indexOf("evolva-")===0;}).map(function(key){return caches.delete(key);}));
-      }
-    }catch(error){ console.warn("EVOLVA clean boot warning",error); }
-    try{
-      await import("./js/main.js?v=10.3.4&boot="+Date.now());
-    }catch(error){
-      console.error(error);
-      window.dispatchEvent(new CustomEvent("evolva-runtime-failed",{detail:{message:error&&error.message?error.message:String(error)}}));
-    }
-  }
-  cleanBoot();
+  window.addEventListener("error",function(event){
+    show("Script error: "+(event.message||"unknown error")+(event.lineno?" at line "+event.lineno:""));setLoading(false);
+  });
   setTimeout(function(){
-    if(!runtimeReady)show("EVOLVA is still loading. If this remains visible, refresh this page once in Safari.");
-  },6000);
+    if(!runtimeReady){show("Startup stalled during "+(window.__EVOLVA_BOOT_STAGE__||window.__EVOLVA_BOOT_PHASE__||"application download")+". Build 10.3.5 uses a single application file; reload once if deployment has just completed.");}
+  },8000);
 })();
 </script>
+<script defer src="app.js?v=10.3.5"></script>
 </body>
 </html>
