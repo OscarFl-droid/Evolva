@@ -1,10 +1,9 @@
 {
-  "product": "EVOLVA",
-  "version": "9.0.5",
-  "cache": "evolva-v9-0-5",
-  "saveKey": "evolva-save-v9-0-5",
-  "engine": "fixed-timestep-system-engine",
-  "simulationHz": 60,
-  "legacySaveFloor": "7.0.0",
-  "name": "Defensive Ecology Stability"
+  "name": "EVOLVA \u2014 Living Development Stability",
+  "version": "10.3.1",
+  "cache": "evolva-v10-3-1",
+  "saveKey": "evolva-save-v10-3-1",
+  "saveSchema": 4,
+  "stage": "Deep debugging and migration recovery",
+  "released": "2026-07-22"
 }

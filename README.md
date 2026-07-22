@@ -1,33 +1,13 @@
-# EVOLVA v9.0.5 — Defensive Ecology Stability
+# EVOLVA v10.3.1 — Living Development Stability
 
-Visible morphology now scales continuously with lineage complexity, completed Atlas genes, symbionts and play style. Late-game forms use an original chitinous brood-organism aesthetic: segmented armour, hooked feeding limbs, dorsal spines, organ sacs, brood buds and luminous sensory clusters. No specific third-party creature is reproduced.
+Deep-debug maintenance release for developmental thresholds, Evolutionary Cuisine, nutritional memory, morphology, mobile UI and save migration.
 
-## Progression
-- Six visible morphology stages from Ancestral Cell to Brood Apex.
-- Atlas genes add corresponding anatomy immediately.
-- Symbionts remain visible as integrated modules.
-- Major evolution triggers a short non-blocking morphology burst.
-- Lineage panel reports complexity and current morphology identity.
+## Corrected systems
 
-Save key: `evolva-save-v9-0-5`. Migrates v8.3.0 and earlier supported saves. Cache: `evolva-v9-0-5`.
+- Cuisine patterns now trigger once per continuous dietary pattern; repeated meals no longer inflate permanent conditioning.
+- Six-item overload triggers once per uninterrupted dietary streak rather than on every additional identical meal.
+- Save loading now falls through corrupted saves and recovers from the rolling backup before older versions.
+- Biochemical pathway discoveries and diet-memory values are validated during migration.
+- Current save schema: `4`; save key: `evolva-save-v10-3-1`; cache: `evolva-v10-3-1`.
 
-## v9.0.5 stability patch
-
-- Separates Atlas pointer cancellation from pointer release, preventing cancelled iOS gestures from selecting a Genome Atlas node.
-- Sanitises migrated capacity, pressure, health, mass, level and generation values before morphology calculations.
-- Restores the correct basal origin gene when an older or partially malformed save identifies an origin but lacks its foundational innovation.
-- Makes morphology complexity calculations finite and defensive against malformed legacy save data.
-- Extends the release audit to verify v9.0.0 and v8.3.0 migration, morphology functions and Atlas cancellation routing.
-
-
-## v9.0.5
-Adds action experience rewards, organism-specific defensive mechanisms, compact cycle-history header, scroll-safe terrain gestures, non-overlapping environment/organism readouts, communication-dependent idle zoom, and larger inspection targets.
-
-## v9.0.5 audit fixes
-
-- Corrected installed-app release name.
-- Normalised legacy organism defence values.
-- Interaction reports now use actual health restored and energy consumed.
-- Removed obsolete living-engulfment module text.
-- Reset compact inspection sizing between targets.
-- Removed duplicate save-loader guard.
+Older v7–v10.3.0 saves remain supported.
