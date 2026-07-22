@@ -1,9 +1,9 @@
 {
   "name": "EVOLVA \u2014 Living Development Stability",
-  "version": "10.3.1",
-  "cache": "evolva-v10-3-1",
-  "saveKey": "evolva-save-v10-3-1",
-  "saveSchema": 4,
-  "stage": "Deep debugging and migration recovery",
+  "version": "10.3.2",
+  "cache": "evolva-v10-3-2",
+  "saveKey": "evolva-save-v10-3-2",
+  "saveSchema": 5,
+  "stage": "Startup recovery, cache coherence and full-system debugging",
   "released": "2026-07-22"
 }

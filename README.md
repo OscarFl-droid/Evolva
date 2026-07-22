@@ -1,13 +1,19 @@
-# EVOLVA v10.3.1 — Living Development Stability
+# EVOLVA v10.3.2 — Living Development
 
-Deep-debug maintenance release for developmental thresholds, Evolutionary Cuisine, nutritional memory, morphology, mobile UI and save migration.
+Stage 1 introduces core developmental thresholds and dynamic Genome Atlas growth.
 
-## Corrected systems
+## Biochemical pathways
 
-- Cuisine patterns now trigger once per continuous dietary pattern; repeated meals no longer inflate permanent conditioning.
-- Six-item overload triggers once per uninterrupted dietary streak rather than on every additional identical meal.
-- Save loading now falls through corrupted saves and recovers from the rolling backup before older versions.
-- Biochemical pathway discoveries and diet-memory values are validated during migration.
-- Current save schema: `4`; save key: `evolva-save-v10-3-1`; cache: `evolva-v10-3-1`.
+Mineral, spore, pigment, lipid and amino-acid reserves are monitored at 20, 40, 60 and 80 items. Reaching a threshold permanently discovers a new Atlas node and records that discovery in the lineage save. The node remains visible after reserves fall, but cannot be selected at a major evolution until the required reserve is rebuilt.
 
-Older v7–v10.3.0 saves remain supported.
+Each resource forms a four-node branch:
+
+- Minerals: biomineralisation, armour and leverage.
+- Spores: innovation, communication and distributed symbiosis.
+- Pigments: sensing, signalling and photoreactive biology.
+- Lipids: membranes, reserves and mobility.
+- Amino acids: contractility, feeding and physical power.
+
+Fixed biochemical nodes supply passive capacity bonuses that flow into movement, defence, signalling, merging, engulfment and organism assessment through the existing phenotype and dice-modifier systems.
+
+Save key: `evolva-save-v10-3-2`. Saves from v10.3.1 through supported v7 releases migrate automatically. Cache: `evolva-v10-3-2`.
