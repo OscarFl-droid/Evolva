@@ -8,6 +8,6 @@ ok(src.includes('validPathways=new Set(BIOCHEMICAL_NODES.map'),'pathway migratio
 ok(src.includes('state.cuisinePatternLatch===c.id'),'continuous cuisine patterns are latched');
 ok(src.includes('else state.cuisinePatternLatch=""'),'cuisine latch clears after pattern interruption');
 ok(src.includes('prior!==type)triggerOverload(type)'),'overload triggers only at the start of a six-item streak');
-ok(src.includes('SAVE_SCHEMA=4'),'schema was advanced for corrected state semantics');
+ok(src.includes('SAVE_SCHEMA=5'),'schema was advanced for corrected state semantics');
 ok(src.includes('Recovered from rolling backup'),'backup recovery is visible to the player');
-console.log(`EVOLVA 10.3.1 stability regression checks passed (${n} assertions).`);
+console.log(`EVOLVA 10.3.2 stability regression checks passed (${n} assertions).`);

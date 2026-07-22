@@ -3,10 +3,10 @@ const read=f=>fs.readFileSync(new URL('../'+f,import.meta.url),'utf8');
 let n=0;function ok(v,m){n++;if(!v)throw new Error(`Regression ${n}: ${m}`)}
 const game=read('js/game.js'),index=read('index.html'),sw=read('sw.js');
 const release=JSON.parse(read('release.json')),manifest=JSON.parse(read('manifest.webmanifest'));
-ok(release.version==='10.3.1','release version');
-ok(release.saveKey==='evolva-save-v10-3-1','save identity');
-ok(manifest.name.includes('10.3.1'),'manifest identity');
-ok(index.includes('10.3.1')&&sw.includes('evolva-v10-3-1'),'build/cache identity');
+ok(release.version==='10.3.2','release version');
+ok(release.saveKey==='evolva-save-v10-3-2','save identity');
+ok(manifest.name.includes('10.3.2'),'manifest identity');
+ok(index.includes('10.3.2')&&sw.includes('evolva-v10-3-2'),'build/cache identity');
 ok(game.includes('BIOCHEMICAL_PATHWAYS'),'pathway registry');
 ok(game.includes('BIOCHEMICAL_NODES'),'dynamic node registry');
 ok((game.match(/threshold:(20|40|60|80)/g)||[]).length===20,'twenty threshold nodes');
@@ -17,8 +17,8 @@ ok(game.includes('if(node.resource&&!pathwayDiscovered(node))return false'),'und
 ok(game.includes('biochemicalAxisBonus(axis)'),'passive modifier integration');
 ok(game.includes('Known pathway; biochemical reserve currently insufficient'),'persistent discovery tooltip');
 ok(game.includes('checkDevelopmentalThresholds();return Object.entries(gained)'),'merge supply threshold check');
-ok(game.includes('SAVE_SCHEMA=4'),'schema version is explicit');
+ok(game.includes('SAVE_SCHEMA=5'),'schema version is explicit');
 ok(game.includes('BACKUP_SAVE_KEY'),'rolling save backup exists');
 ok(game.includes('migrationReport'),'migration reporting exists');
 ok(game.includes('save unavailable'),'save failure is visible');
-console.log(`EVOLVA 10.3.1 developmental threshold and migration regression checks passed (${n} assertions).`);
+console.log(`EVOLVA 10.3.2 developmental threshold and migration regression checks passed (${n} assertions).`);
