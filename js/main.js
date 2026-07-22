@@ -1,6 +1,6 @@
 "use strict";
-import {EvolvaEngine} from "./engine.js?v=10.3.2";
-import {BUILD_VERSION,createGameRuntime} from "./game.js?v=10.3.2";
+import {EvolvaEngine} from "./engine.js?v=10.3.3";
+import {BUILD_VERSION,createGameRuntime} from "./game.js?v=10.3.3";
 
 const engine=new EvolvaEngine({stepHz:60,maxCatchUpSteps:5});
 let game=null;
@@ -11,11 +11,14 @@ function showBootFailure(error){
 }
 try{
  game=createGameRuntime(engine);
- window.EVOLVA=Object.freeze({version:BUILD_VERSION,diagnostics:game.diagnostics,save:game.save});
+ window.__EVOLVA_START__=game.start;
+ window.EVOLVA=Object.freeze({version:BUILD_VERSION,diagnostics:game.diagnostics,save:game.save,start:game.start});
  engine.start();
+ window.dispatchEvent(new CustomEvent("evolva-runtime-ready"));
 }catch(error){
  showBootFailure(error);
  window.EVOLVA=Object.freeze({version:BUILD_VERSION,startupError:String(error?.message||error||"unknown")});
+ window.dispatchEvent(new CustomEvent("evolva-runtime-failed",{detail:{message:error?.message||String(error)}}));
 }
 async function verifyDeployedBuild(){
  try{
@@ -30,23 +33,3 @@ async function verifyDeployedBuild(){
  }catch(error){console.warn("EVOLVA build verification unavailable:",error)}
 }
 verifyDeployedBuild();
-
-
-async function registerServiceWorker(){
- if(!("serviceWorker" in navigator)||!location.protocol.startsWith("http"))return;
- try{
-  const registration=await navigator.serviceWorker.register(`./sw.js?v=${encodeURIComponent(BUILD_VERSION)}`,{updateViaCache:"none"});
-  if(registration?.waiting)registration.waiting.postMessage({type:"SKIP_WAITING"});
-  // update() is optional in some embedded WebKit states; never treat its absence as a game error.
-  if(typeof registration?.update==="function")registration.update().catch(()=>{});
- }catch(error){console.warn("EVOLVA offline cache unavailable:",error)}
-}
-let controllerReloaded=false;
-navigator.serviceWorker?.addEventListener("controllerchange",()=>{
- if(controllerReloaded)return;controllerReloaded=true;
- // Reload only when an older controller existed; first installation must not interrupt play.
- if(sessionStorage.getItem("evolva-had-controller")==="1")location.reload();
- else sessionStorage.setItem("evolva-had-controller","1")
-});
-if(navigator.serviceWorker?.controller)sessionStorage.setItem("evolva-had-controller","1");
-registerServiceWorker();

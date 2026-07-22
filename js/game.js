@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="10.3.2",BUILD_CACHE="evolva-v10-3-2";
+export const BUILD_VERSION="10.3.3",BUILD_CACHE="evolva-v10-3-3";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_SCHEMA=5,SAVE_KEY="evolva-save-v10-3-2",BACKUP_SAVE_KEY="evolva-save-v10-3-2-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-1",OLDER_SAVE_KEYS=["evolva-save-v10-3-0","evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_SCHEMA=5,SAVE_KEY="evolva-save-v10-3-3",BACKUP_SAVE_KEY="evolva-save-v10-3-3-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-2",OLDER_SAVE_KEYS=["evolva-save-v10-3-1","evolva-save-v10-3-0","evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -431,7 +431,7 @@ function fresh(){
  discoveredPathways:{},newPathway:null,
  atlasView:{x:430,y:360,zoom:1},
  dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],nutritionSequence:[],metabolicState:null,metabolicDisorder:null,discoveredCuisine:[],cuisineReinforcement:{},lastCuisineSignature:"",cuisinePatternLatch:"",encounter:null,interactionTarget:null,lastTileKey:"",
- symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},lineageActions:{hunts:0,engulfs:0,migrations:0,mergers:0,signals:0,inspections:0,niches:0,rests:0,scavenges:0,harshCycles:0},buildVersion:BUILD_VERSION,saveSchema:SAVE_SCHEMA,migrationReport:"New lineage · schema 4",resources:[],organisms:[],logs:[],lastInteraction:0
+ symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},lineageActions:{hunts:0,engulfs:0,migrations:0,mergers:0,signals:0,inspections:0,niches:0,rests:0,scavenges:0,harshCycles:0},buildVersion:BUILD_VERSION,saveSchema:SAVE_SCHEMA,migrationReport:"New lineage · schema 5",resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -1295,9 +1295,11 @@ function load(){
 }
 function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small><strong>Permanent architecture:</strong> ${o.legacy}<br><strong>Begins:</strong> ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}<br><strong>Possible identities:</strong> ${o.paths.join(" · ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
 function start(newLineage=false){
- if(newLineage){[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
- checkDevelopmentalThresholds(false);if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
- if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500)
+ try{
+  if(newLineage){[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>{try{localStorage.removeItem(k)}catch{}});state=fresh()}else load();
+  checkDevelopmentalThresholds(false);if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
+  if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500);
+ }catch(error){showRuntimeError(error);throw error}
 }
 export function createGameRuntime(engine){
  applyBuildIdentity();
