@@ -1,6 +1,6 @@
 "use strict";
-const CACHE="evolva-v10-3-3";
-const SHELL=["./reset-cache.html","./release.json","./","./index.html","./styles.css?v=10.3.3","./manifest.webmanifest?v=10.3.3","./icons/icon.svg","./js/main.js?v=10.3.3","./js/engine.js?v=10.3.3","./js/game.js?v=10.3.3"];
+const CACHE="evolva-v10-3-4";
+const SHELL=["./reset-cache.html","./release.json","./","./index.html","./styles.css?v=10.3.4","./manifest.webmanifest?v=10.3.4","./icons/icon.svg","./js/main.js?v=10.3.4","./js/engine.js?v=10.3.4","./js/game.js?v=10.3.4"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith("evolva-")&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener("message",event=>{if(event.data?.type==="SKIP_WAITING")self.skipWaiting()});
