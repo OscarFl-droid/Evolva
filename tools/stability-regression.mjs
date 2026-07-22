@@ -1,0 +1,13 @@
+import fs from "node:fs";
+const src=fs.readFileSync(new URL("../js/game.js",import.meta.url),"utf8");
+let n=0;const ok=(v,m)=>{n++;if(!v)throw new Error(`Stability regression ${n}: ${m}`)};
+ok(src.includes('const keys=[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS]'),'backup is attempted before older migrations');
+ok(src.includes('for(const sourceKey of keys)'),'loader falls through candidate saves');
+ok(src.includes('catch(e){try{localStorage.setItem(`${SAVE_KEY}-corrupt-${sourceKey}-${Date.now()}`'),'corrupt candidates are preserved and skipped');
+ok(src.includes('validPathways=new Set(BIOCHEMICAL_NODES.map'),'pathway migration is allow-listed');
+ok(src.includes('state.cuisinePatternLatch===c.id'),'continuous cuisine patterns are latched');
+ok(src.includes('else state.cuisinePatternLatch=""'),'cuisine latch clears after pattern interruption');
+ok(src.includes('prior!==type)triggerOverload(type)'),'overload triggers only at the start of a six-item streak');
+ok(src.includes('SAVE_SCHEMA=4'),'schema was advanced for corrected state semantics');
+ok(src.includes('Recovered from rolling backup'),'backup recovery is visible to the player');
+console.log(`EVOLVA 10.3.1 stability regression checks passed (${n} assertions).`);

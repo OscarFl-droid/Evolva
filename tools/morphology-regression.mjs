@@ -1,0 +1,22 @@
+import fs from "node:fs";
+const read=f=>fs.readFileSync(new URL("../"+f,import.meta.url),"utf8");
+let n=0;function ok(v,m){n++;if(!v)throw new Error(`Morphology regression ${n}: ${m}`)}
+const game=read("js/game.js"),index=read("index.html"),css=read("styles.css");
+ok(game.includes("function morphologyProfile()"),"morphology profile engine");
+ok(game.includes("function biochemicalMorphologyLevel(resource)"),"biochemical anatomy levels");
+ok(game.includes("cuisineReinforcement:{}"),"fresh reinforcement state");
+ok(game.includes("state.cuisineReinforcement[c.id]=clamp"),"cuisine reinforcement tracking");
+ok(game.includes("n>=3"),"conditioned anatomy threshold");
+ok(game.includes("Permanent biochemical anatomy"),"fixed-node visual transformation layer");
+ok(game.includes("profile.levels.mineral"),"mineral transformation");
+ok(game.includes("profile.levels.spore"),"spore transformation");
+ok(game.includes("profile.levels.pigment"),"pigment transformation");
+ok(game.includes("profile.levels.lipid"),"lipid transformation");
+ok(game.includes("profile.levels.amino"),"amino transformation");
+ok(game.includes("spore_toxicity")&&game.includes("mineral_saturation")&&game.includes("protein_overload")&&game.includes("lipid_storage")&&game.includes("glycolytic_crash"),"specific disorder visuals");
+ok(index.includes('id="morphologyReadout"'),"morphology readout");
+ok(css.includes(".morphology-readout"),"morphology readout styling");
+ok(game.includes("ACTIVE TRANSFORMATION"),"active transformation reporting");
+ok(game.includes("Cuisine transformations become conditioned anatomy after three separate activations"),"conditioning explanation");
+ok(game.includes("state.cuisineReinforcement={}"),"save migration sanitisation");
+console.log(`EVOLVA 10.3.1 morphology regression checks passed (${n} assertions).`);

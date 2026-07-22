@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+const src=fs.readFileSync(new URL('../js/game.js',import.meta.url),'utf8');
+let n=0;
+function ok(condition,message){n++;if(!condition)throw new Error(`Cuisine regression ${n}: ${message}`)}
+ok(src.includes('nutritionSequence:[]'),'fresh state includes nutritional sequence');
+ok(src.includes('slice(-8)'),'nutritional memory is capped at eight');
+ok(src.includes('discoveredCuisine:[]'),'cuisine codex persists');
+ok(src.includes('adaptive_biofilm'),'adaptive biofilm exists');
+ok(src.includes('["pigment","mineral","spore","pigment","spore","mineral"]'),'requested secret sequence exists');
+ok(src.includes('crystal_skin'),'crystal skin exists');
+ok(src.includes('["amino","amino","lipid"]'),'contractile sequence exists');
+ok(src.includes('["lipid","lipid","pigment"]'),'floating bloom sequence exists');
+ok(src.includes('last6.length===6&&last6.every'),'six-item overload detector exists');
+ok(src.includes('state.health/3'),'spore toxicity removes one third current health');
+ok(src.includes('metabolicModifier("waterUse")'),'water-use modifier is integrated');
+ok(src.includes('metabolicModifier("energyUse")'),'energy-use modifier is integrated');
+ok(src.includes('metabolicAxisModifier(axis)'),'metabolic axes feed derived capacities');
+ok(src.includes('recordNutritionalConsumption(type)'),'Pack consumption updates memory');
+ok(src.includes('EVOLUTIONARY CUISINE CODEX'),'codex UI exists');
+ok(src.includes('activeCuisine()?.mods?.environment'),'environmental cuisine effect is integrated');
+ok(src.includes('cuisine?.id==="crystal_skin"'),'crystal morphology overlay exists');
+ok(src.includes('cuisine?.id==="adaptive_biofilm"'),'biofilm morphology overlay exists');
+ok(src.includes('x.metabolicDisorder?.id'),'save migration includes disorder state');
+ok(src.includes('evolva-save-v10-3-1'),'current save key is present');
+ok(src.includes('"evolva-save-v10-2-0"'),'v10.2 migration key is present');
+console.log(`EVOLVA 10.3.1 cuisine regression checks passed (${n} assertions).`);
