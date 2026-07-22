@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="10.3.3",BUILD_CACHE="evolva-v10-3-3";
+export const BUILD_VERSION="10.3.4",BUILD_CACHE="evolva-v10-3-4";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_SCHEMA=5,SAVE_KEY="evolva-save-v10-3-3",BACKUP_SAVE_KEY="evolva-save-v10-3-3-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-2",OLDER_SAVE_KEYS=["evolva-save-v10-3-1","evolva-save-v10-3-0","evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_SCHEMA=5,SAVE_KEY="evolva-save-v10-3-4",BACKUP_SAVE_KEY="evolva-save-v10-3-4-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-3",OLDER_SAVE_KEYS=["evolva-save-v10-3-2","evolva-save-v10-3-1","evolva-save-v10-3-0","evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -477,10 +477,10 @@ function moduleCount(effect){return state.symbionts.filter(id=>moduleById(id)?.e
 function phenotype(){
  const flag=moduleCount("speed"),armour=moduleCount("armour"),detox=moduleCount("detox"),signal=moduleCount("signal");
  return{
- speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex")?.92:1)*(1+flag*.09)*metabolicModifier("speed"),
+ speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex") ? 0.92 : 1)*(1+flag*.09)*metabolicModifier("speed"),
  force:(1+(derivedAxis("power")-1)*.08)*(gene("contractile cortex")?1.15:1)*(gene("mineral scaffold")?1.3:1)*metabolicModifier("force"),
  defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1)*(1+armour*.12)*metabolicModifier("defense"),
- waterUse:(gene("selective membrane")?.82:1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025))*metabolicModifier("waterUse"),
+ waterUse:(gene("selective membrane") ? 0.82 : 1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025))*metabolicModifier("waterUse"),
  energyUse:metabolicModifier("energyUse"),
  detection:130*(1+(derivedAxis("cognition")-1)*.08)*(gene("chemical sensing")?1.25:1)*(gene("electroreception")?1.55:1),
  foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1)*(state.origin==="crawler"?1.08:1),
@@ -933,7 +933,7 @@ function ecologyTick(){
  if(tile.rough)addPressure("mobility",.2);
  if((gene("photosymbiosis")||moduleCount("light"))&&b.light>55)state.energy=clamp(state.energy+2.4+moduleCount("light")*1.2);
  if(gene("thermal engine")&&(b.temp>45||b.temp<0))state.energy=clamp(state.energy+2.8);
- const lowFit=Math.max(0,35-fit());if(lowFit>0){state.lineageActions.harshCycles+=.01}if(lowFit>0)damage(lowFit*.05*(gene("detoxification")?.6:1));
+ const lowFit=Math.max(0,35-fit());if(lowFit>0){state.lineageActions.harshCycles+=.01}if(lowFit>0)damage(lowFit*.05*(gene("detoxification") ? 0.6 : 1));
  if(state.energy<5||state.water<5)damage(3.5);
  Object.entries(b.pressure).forEach(([k,v])=>addPressure(k,v*.04));
  state.cycle++;
@@ -1049,7 +1049,7 @@ function systemSuccession(){
    if(p.type==="detritus"&&p.strength>28)p.type="microbial";
    else if(p.type==="microbial"&&p.strength>55)p.type="mat";
    else if(p.type==="spore"&&p.strength>40)p.type="fungal";
-   p.strength=clamp(p.strength+((p.type==="microbial"||p.type==="spore")?.35:.08),0,100)
+   p.strength=clamp(p.strength+((p.type==="microbial"||p.type==="spore") ? 0.35 : 0.08),0,100)
  }
  state.patches=state.patches.filter(p=>p.age<9000||p.strength>45)
 }
