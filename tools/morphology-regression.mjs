@@ -19,4 +19,4 @@ ok(css.includes(".morphology-readout"),"morphology readout styling");
 ok(game.includes("ACTIVE TRANSFORMATION"),"active transformation reporting");
 ok(game.includes("Cuisine transformations become conditioned anatomy after three separate activations"),"conditioning explanation");
 ok(game.includes("state.cuisineReinforcement={}"),"save migration sanitisation");
-console.log(`EVOLVA 10.3.2 morphology regression checks passed (${n} assertions).`);
+console.log(`EVOLVA 10.3.3 morphology regression checks passed (${n} assertions).`);

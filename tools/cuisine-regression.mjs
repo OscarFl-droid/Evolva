@@ -23,4 +23,4 @@ ok(src.includes('cuisine?.id==="adaptive_biofilm"'),'biofilm morphology overlay 
 ok(src.includes('x.metabolicDisorder?.id'),'save migration includes disorder state');
 ok(src.includes('evolva-save-v10-3-1'),'current save key is present');
 ok(src.includes('"evolva-save-v10-2-0"'),'v10.2 migration key is present');
-console.log(`EVOLVA 10.3.2 cuisine regression checks passed (${n} assertions).`);
+console.log(`EVOLVA 10.3.3 cuisine regression checks passed (${n} assertions).`);
