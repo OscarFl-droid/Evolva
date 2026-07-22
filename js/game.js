@@ -1,11 +1,11 @@
 "use strict";
-export const BUILD_VERSION="9.0.5",BUILD_CACHE="evolva-v9-0-5";
+export const BUILD_VERSION="10.3.1",BUILD_CACHE="evolva-v10-3-1";
 const $=id=>document.getElementById(id);
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const choice=a=>a[Math.floor(Math.random()*a.length)];
 const canvas=$("world"),ctx=canvas.getContext("2d");ctx.imageSmoothingEnabled=false;
-const SAVE_KEY="evolva-save-v9-0-5",LEGACY_SAVE_KEY="evolva-save-v9-0-4",OLDER_SAVE_KEYS=["evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
+const SAVE_SCHEMA=4,SAVE_KEY="evolva-save-v10-3-1",BACKUP_SAVE_KEY="evolva-save-v10-3-1-backup",LEGACY_SAVE_KEY="evolva-save-v10-3-0",OLDER_SAVE_KEYS=["evolva-save-v10-2-0","evolva-save-v10-1-0","evolva-save-v10-0-0","evolva-save-v9-0-5","evolva-save-v9-0-4","evolva-save-v9-0-3","evolva-save-v9-0-2","evolva-save-v9-0-1","evolva-save-v9-0-0","evolva-save-v8-3-0","evolva-save-v8-2-2","evolva-save-v8-2-1","evolva-save-v8-2-0","evolva-save-v8-1-0","evolva-save-v8-0-0","evolva-save-v7-5-1","evolva-save-v7-5","evolva-save-v7-4","evolva-save-v7-3","evolva-save-v7-2","evolva-save-v7-1","evolva-save-v7"],WORLD=3000,XP_BASE=100;
 
 const BIOMES=[
 {name:"TIDAL POOL",ground:"#397a59",water:"#3b8fb3",sky:"#83cbb0",light:78,moisture:84,temp:36,hazard:26,pressure:{mobility:2,adaptability:2,communication:1}},
@@ -69,6 +69,63 @@ const DIET_RECIPES=[
  {id:"plastic_generalist",name:"Plastic Generalist",needs:{sugar:1,lipid:1,amino:1,pigment:1},axes:{adaptability:10,innovation:3},desc:"A varied diet preserves developmental flexibility rather than one narrow specialisation."}
 ];
 
+
+const CUISINE_STATES=[
+ {id:"adaptive_biofilm",name:"Adaptive Biofilm",icon:"≈",sequence:["pigment","mineral","spore","pigment","spore","mineral"],duration:8,axes:{adaptability:1,communication:1},mods:{waterUse:.84,environment:1},morph:"iridescent biofilm",desc:"A layered pigment–mineral–spore matrix seals the body and recycles water.",discovery:"Water replenished; +1 Adaptability and Communication; reduced water use."},
+ {id:"crystal_skin",name:"Crystal Skin",icon:"◇",pattern:"alternating_mineral_pigment",duration:7,axes:{resilience:1},mods:{defense:1.12},morph:"crystalline ridges",desc:"Alternating chromatic and mineral intake templates a reflective protective lattice.",discovery:"+1 Resilience and strengthened defence rolls."},
+ {id:"contractile_burst",name:"Contractile Burst",icon:"◆",sequence:["amino","amino","lipid"],duration:6,axes:{power:1,mobility:1},mods:{force:1.10,speed:1.06,energyUse:1.16},morph:"contractile bands",desc:"Protein-rich fibres are energised by a lipid pulse.",discovery:"+1 Power and Mobility; stronger engulfment, but higher energy use."},
+ {id:"floating_bloom",name:"Floating Bloom",icon:"◌",sequence:["lipid","lipid","pigment"],duration:7,axes:{mobility:1,adaptability:1},mods:{speed:1.04,waterUse:.92,energyUse:.90},morph:"luminous vacuoles",desc:"Pigmented lipid vacuoles create buoyancy and a low-cost drifting metabolism.",discovery:"Improved Mobility and Adaptability; lower energy and water use."},
+ {id:"living_colony_cuisine",name:"Living Colony Metabolism",icon:"✺",pattern:"spore_diversity",duration:8,axes:{innovation:1,communication:1},mods:{merge:1,innovation:1.08},morph:"symbiotic spore buds",desc:"Spore-rich feeding embedded within a diverse diet stabilises multiple metabolic partners.",discovery:"+1 Innovation and Communication; merger outcomes strengthened."},
+ {id:"warning_coloration",name:"Warning Colouration",icon:"◐",pattern:"pigment_dominant",duration:7,axes:{communication:1},mods:{communication:1.10,visibility:1.18},morph:"warning bands",desc:"Repeated pigments are displayed as an overt chemical warning.",discovery:"Communication strengthened, but predators detect the lineage more easily."},
+ {id:"balanced_metabolism",name:"Balanced Metabolism",icon:"∞",pattern:"high_diversity",duration:6,axes:{adaptability:1},mods:{waterUse:.95,energyUse:.95},morph:"stable membrane",desc:"A highly varied sequence prevents any single metabolic pathway from dominating.",discovery:"+1 Adaptability; reduced physiological drain and faster overload recovery."}
+];
+const METABOLIC_DISORDERS={
+ spore:{id:"spore_toxicity",name:"Spore Toxicity",icon:"☠",duration:7,axes:{innovation:1,resilience:-1},mods:{defense:.88,waterUse:1.10},desc:"Six consecutive spores destabilised digestion and removed one third of current health."},
+ mineral:{id:"mineral_saturation",name:"Mineral Saturation",icon:"⬡",duration:7,axes:{resilience:1,mobility:-1},mods:{defense:1.10,speed:.88},desc:"Dense mineral loading improves armour but restricts movement."},
+ amino:{id:"protein_overload",name:"Protein Overload",icon:"◆",duration:7,axes:{power:1,adaptability:-1},mods:{force:1.09,energyUse:1.20},desc:"Hypertrophic tissues generate force but consume energy rapidly."},
+ lipid:{id:"lipid_storage",name:"Lipid Storage Syndrome",icon:"◉",duration:7,axes:{resilience:1,mobility:-1},mods:{energyUse:.88,speed:.86},desc:"Large reserves buffer starvation but make acceleration sluggish."},
+ pigment:{id:"chromatic_overexpression",name:"Chromatic Overexpression",icon:"◈",duration:7,axes:{communication:1,cognition:-1},mods:{communication:1.09,visibility:1.28},desc:"Intense signalling improves communication while making concealment difficult."},
+ sugar:{id:"glycolytic_crash",name:"Glycolytic Crash",icon:"↓",duration:5,axes:{power:1,resilience:-1},mods:{force:1.06,energyUse:1.24},desc:"Repeated sugar causes a brief energetic surge followed by unstable maintenance."}
+};
+function endsWithSequence(history,sequence){return history.length>=sequence.length&&sequence.every((v,i)=>history[history.length-sequence.length+i]===v)}
+function sequenceCounts(history=state.nutritionSequence||[]){const c={};Object.keys(FOOD).forEach(k=>c[k]=0);history.forEach(k=>c[k]=(c[k]||0)+1);return c}
+function cuisineDefinition(id){return CUISINE_STATES.find(x=>x.id===id)||null}
+function activeCuisine(){return cuisineDefinition(state.metabolicState?.id)}
+function activeDisorder(){return Object.values(METABOLIC_DISORDERS).find(x=>x.id===state.metabolicDisorder?.id)||null}
+function metabolicAxisModifier(axis){let n=0;const c=activeCuisine(),d=activeDisorder();if(c)n+=c.axes?.[axis]||0;if(d)n+=d.axes?.[axis]||0;return n}
+function metabolicModifier(key,base=1){let v=base;const c=activeCuisine(),d=activeDisorder();if(c?.mods?.[key]!=null)v*=c.mods[key];if(d?.mods?.[key]!=null)v*=d.mods[key];return v}
+function recogniseCuisine(history=state.nutritionSequence||[]){
+ const counts=sequenceCounts(history),last=history.at(-1),unique=new Set(history).size;
+ for(const c of CUISINE_STATES)if(c.sequence&&endsWithSequence(history,c.sequence))return c;
+ if(history.length>=4&&history.slice(-4).every((v,i,a)=>["mineral","pigment"].includes(v)&&(i===0||v!==a[i-1])))return cuisineDefinition("crystal_skin");
+ if(history.length>=6&&counts.spore>=3&&unique>=3&&last!=="spore")return cuisineDefinition("living_colony_cuisine");
+ if(history.length>=4&&history.slice(-4).every(v=>v==="pigment"))return cuisineDefinition("warning_coloration");
+ if(history.length>=6&&unique>=5)return cuisineDefinition("balanced_metabolism");
+ return null
+}
+function activateCuisine(c){
+ if(!c||state.cuisinePatternLatch===c.id)return;
+ state.cuisinePatternLatch=c.id;state.lastCuisineSignature=`${c.id}:${(state.nutritionSequence||[]).join(",")}`;state.metabolicState={id:c.id,meals:c.duration};state.cuisineReinforcement=state.cuisineReinforcement||{};state.cuisineReinforcement[c.id]=clamp((state.cuisineReinforcement[c.id]||0)+1,0,5);
+ if(!state.discoveredCuisine.includes(c.id)){state.discoveredCuisine.push(c.id);toast(`EVOLUTIONARY CUISINE · ${c.name.toUpperCase()}`);log(`Evolutionary Cuisine discovered: ${c.name}. ${c.discovery}`);addXP(8,`Metabolic discovery: ${c.name}`)}else toast(c.name.toUpperCase());
+ if(c.id==="adaptive_biofilm"){const restored=Math.round(Math.min(35,100-state.water));state.water=clamp(state.water+35);log(`Adaptive Biofilm recycled metabolites and restored ${restored} water.`)}
+ burst(state.x,state.y,FOOD[(state.nutritionSequence||[]).at(-1)]?.color||"#8cff9c",18,1.8);atlasDirty=true
+}
+function triggerOverload(type){
+ const d=METABOLIC_DISORDERS[type];if(!d)return;
+ if(state.metabolicDisorder?.signature===(state.nutritionSequence||[]).join(","))return;
+ state.metabolicDisorder={id:d.id,meals:d.duration,signature:(state.nutritionSequence||[]).join(",")};
+ if(type==="spore"){const lost=Math.max(1,Math.round(state.health/3));state.health=clamp(state.health-lost);toast(`SPORE TOXICITY · −${lost} HEALTH`);log(`Six spores in sequence caused indigestion and removed ${lost} health.`)}else{toast(d.name.toUpperCase());log(`${d.name} developed after six consecutive ${FOOD[type].name.toLowerCase()} consumptions.`)}
+ atlasDirty=true
+}
+function recordNutritionalConsumption(type){
+ state.nutritionSequence.push(type);state.nutritionSequence=state.nutritionSequence.slice(-8);
+ if(state.metabolicState?.meals>0&&--state.metabolicState.meals<=0)state.metabolicState=null;
+ if(state.metabolicDisorder?.meals>0&&--state.metabolicDisorder.meals<=0)state.metabolicDisorder=null;
+ const last6=state.nutritionSequence.slice(-6),prior=state.nutritionSequence.at(-7);
+ if(last6.length===6&&last6.every(x=>x===type)&&prior!==type)triggerOverload(type);
+ const c=recogniseCuisine();if(c)activateCuisine(c);else state.cuisinePatternLatch="";
+}
+
 const MODULES=[
  {id:"flagellate",name:"Flagellate Symbiont",icon:"≋",color:"#7de0ff",axis:"mobility",effect:"speed",desc:"A retained motile cell assists propulsion."},
  {id:"phototroph",name:"Phototrophic Symbiont",icon:"☼",color:"#ffd66a",axis:"innovation",effect:"light",desc:"A living internal phototroph produces energy in bright niches."},
@@ -86,6 +143,35 @@ const EFFECT_TYPES={
 };
 function moduleById(id){return MODULES.find(m=>m.id===id)}
 function randomModule(){return choice(MODULES)}
+const BIOCHEMICAL_PATHWAYS={
+ mineral:{name:"BIOMINERALISATION",icon:"⬡",color:"#f18b66",thresholds:[20,40,60,80]},
+ spore:{name:"SYMBIOTIC PLASTICITY",icon:"✺",color:"#ddb477",thresholds:[20,40,60,80]},
+ pigment:{name:"CHROMATIC BIOLOGY",icon:"◈",color:"#7de0ff",thresholds:[20,40,60,80]},
+ lipid:{name:"MEMBRANE ENERGETICS",icon:"◌",color:"#ffd66a",thresholds:[20,40,60,80]},
+ amino:{name:"CONTRACTILE BIOSYNTHESIS",icon:"◆",color:"#91ff9c",thresholds:[20,40,60,80]}
+};
+const BIOCHEMICAL_NODES=[
+ {id:"mineral deposition",name:"Mineral Deposition",axis:"resilience",tier:2,icon:"⬡",req:["stress response"],min:{resilience:2},resource:"mineral",threshold:20,desc:"Stored minerals are incorporated into protective matrices.",effect:"+1 Resilience; +1 defensive interactions"},
+ {id:"crystal matrix",name:"Crystal Matrix",axis:"resilience",tier:3,icon:"◇",req:["mineral deposition"],min:{resilience:4},resource:"mineral",threshold:40,desc:"Ordered mineral lattices distribute impacts across the body.",effect:"+1 Resilience; defence rolls strengthened"},
+ {id:"reinforced leverage",name:"Reinforced Leverage",axis:"power",tier:4,icon:"▰",req:["crystal matrix"],min:{power:4,resilience:5},resource:"mineral",threshold:60,desc:"Mineralised anchors increase mechanical leverage.",effect:"+1 Power; engulf rolls strengthened"},
+ {id:"living fortress",name:"Living Fortress",axis:"resilience",tier:5,icon:"▣",req:["reinforced leverage"],min:{resilience:7},resource:"mineral",threshold:80,desc:"A continuously remodelled armour system surrounds vulnerable tissues.",effect:"+2 Resilience; major defensive advantage"},
+ {id:"adaptive spores",name:"Adaptive Spores",axis:"innovation",tier:2,icon:"°",req:["chemical sensing"],min:{innovation:2},resource:"spore",threshold:20,desc:"Retained spore chemistry broadens developmental variation.",effect:"+1 Innovation; rare outcomes improved"},
+ {id:"symbiotic relay",name:"Symbiotic Relay",axis:"communication",tier:3,icon:"⌁",req:["adaptive spores"],min:{communication:4},resource:"spore",threshold:40,desc:"Spore-derived signals coordinate compatible cells.",effect:"+1 Communication; signal and merge rolls strengthened"},
+ {id:"distributed symbiosis",name:"Distributed Symbiosis",axis:"cognition",tier:4,icon:"◎",req:["symbiotic relay"],min:{cognition:5},resource:"spore",threshold:60,desc:"Multiple symbiotic compartments share chemical information.",effect:"+1 Cognition; organism assessment improved"},
+ {id:"living colony",name:"Living Colony",axis:"communication",tier:5,icon:"❖",req:["distributed symbiosis"],min:{communication:7,innovation:6},resource:"spore",threshold:80,desc:"The body behaves as a coordinated multispecies community.",effect:"+2 Communication; major merger advantage"},
+ {id:"pigment vesicles",name:"Pigment Vesicles",axis:"cognition",tier:2,icon:"◈",req:["chemical sensing"],min:{cognition:2},resource:"pigment",threshold:20,desc:"Concentrated pigments improve contrast and light detection.",effect:"+1 Cognition; inspection rolls strengthened"},
+ {id:"warning display",name:"Warning Display",axis:"communication",tier:3,icon:"◐",req:["pigment vesicles"],min:{communication:3},resource:"pigment",threshold:40,desc:"Patterned coloration communicates toxicity and intent.",effect:"+1 Communication; signalling strengthened"},
+ {id:"photoreactive membrane",name:"Photoreactive Membrane",axis:"adaptability",tier:4,icon:"☼",req:["warning display"],min:{adaptability:5},resource:"pigment",threshold:60,desc:"Pigments tune metabolism to changing light conditions.",effect:"+1 Adaptability; environmental interactions strengthened"},
+ {id:"chromatic intelligence",name:"Chromatic Intelligence",axis:"cognition",tier:5,icon:"✧",req:["photoreactive membrane"],min:{cognition:7,communication:6},resource:"pigment",threshold:80,desc:"Dynamic body patterns become a high-bandwidth sensory language.",effect:"+2 Cognition; threat prediction strengthened"},
+ {id:"lipid reservoir",name:"Lipid Reservoir",axis:"mobility",tier:2,icon:"◌",req:["selective membrane"],min:{mobility:2},resource:"lipid",threshold:20,desc:"Stored lipids stabilise membranes and fuel movement.",effect:"+1 Mobility; movement and escape strengthened"},
+ {id:"elastic bilayer",name:"Elastic Bilayer",axis:"adaptability",tier:3,icon:"≈",req:["lipid reservoir"],min:{adaptability:4},resource:"lipid",threshold:40,desc:"Flexible membrane layers tolerate deformation and osmotic change.",effect:"+1 Adaptability; water economy improved"},
+ {id:"energy vacuoles",name:"Energy Vacuoles",axis:"resilience",tier:4,icon:"◉",req:["elastic bilayer"],min:{resilience:5},resource:"lipid",threshold:60,desc:"Dense intracellular reserves buffer starvation and exertion.",effect:"+1 Resilience; sustained interactions improved"},
+ {id:"metabolic mastery",name:"Metabolic Mastery",axis:"mobility",tier:5,icon:"∞",req:["energy vacuoles"],min:{mobility:7,adaptability:6},resource:"lipid",threshold:80,desc:"Energy storage and membrane turnover are tightly integrated.",effect:"+2 Mobility; major escape and pursuit advantage"},
+ {id:"contractile proteins",name:"Contractile Proteins",axis:"power",tier:2,icon:"◆",req:["contractile cortex"],min:{power:2},resource:"amino",threshold:20,desc:"Amino-acid reserves support denser force-generating fibres.",effect:"+1 Power; engulf rolls strengthened"},
+ {id:"dense cytoskeleton",name:"Dense Cytoskeleton",axis:"power",tier:3,icon:"╫",req:["contractile proteins"],min:{power:4},resource:"amino",threshold:40,desc:"Cross-linked structural proteins transmit force efficiently.",effect:"+1 Power; physical interactions strengthened"},
+ {id:"feeding musculature",name:"Feeding Musculature",axis:"mobility",tier:4,icon:"∨",req:["dense cytoskeleton"],min:{power:6,mobility:4},resource:"amino",threshold:60,desc:"Specialised muscular tissues accelerate capture and ingestion.",effect:"+1 Mobility; engulf and pursuit strengthened"},
+ {id:"apex contractility",name:"Apex Contractility",axis:"power",tier:5,icon:"✦",req:["feeding musculature"],min:{power:8},resource:"amino",threshold:80,desc:"The body is organised around rapid, coordinated force production.",effect:"+2 Power; major physical interaction advantage"}
+];
 const ATLAS=[
 {id:"selective membrane",name:"Selective Membrane",axis:"adaptability",tier:1,icon:"◌",req:[],min:{adaptability:1},desc:"Controls passive exchange and reduces water loss.",effect:"Water use −18%"},
 {id:"contractile cortex",name:"Contractile Cortex",axis:"power",tier:1,icon:"◍",req:[],min:{power:1},desc:"Organised force generation beneath the membrane.",effect:"Force +15%"},
@@ -114,7 +200,8 @@ const ATLAS=[
 {id:"distributed ganglion",name:"Distributed Ganglion",axis:"cognition",tier:4,icon:"◎",req:["threat model","segmented body"],min:{cognition:8},desc:"Regional information centres coordinate complex body modules.",effect:"Tactical behaviour unlocked"},
 {id:"colonial budding",name:"Colonial Budding",axis:"communication",tier:4,icon:"❖",req:["cooperative exchange","developmental reserve"],min:{communication:8,adaptability:7},desc:"Temporary daughter units remain behaviourally coordinated.",effect:"Companion buds"},
 {id:"thermal engine",name:"Thermal Engine",axis:"innovation",tier:5,icon:"♨",req:["detoxification","mineral scaffold"],min:{innovation:9,resilience:8},desc:"Exploits extreme temperature gradients for metabolism.",effect:"Energy from thermal niches"},
-{id:"adaptive radiation",name:"Adaptive Radiation",axis:"adaptability",tier:5,icon:"✺",req:["developmental reserve","segmented body"],min:{adaptability:9,innovation:8},desc:"Each new biome can activate a specialised reversible form.",effect:"Biome morphs unlocked"}
+{id:"adaptive radiation",name:"Adaptive Radiation",axis:"adaptability",tier:5,icon:"✺",req:["developmental reserve","segmented body"],min:{adaptability:9,innovation:8},desc:"Each new biome can activate a specialised reversible form.",effect:"Biome morphs unlocked"},
+...BIOCHEMICAL_NODES
 ];
 
 
@@ -149,8 +236,22 @@ const ATLAS_LOGICAL_W=860,ATLAS_LOGICAL_H=720;
 function atlasDpr(){return Math.min(2.5,window.devicePixelRatio||1)}
 function resizeAtlasCanvas(){if(!atlasCanvas)return;const d=atlasDpr(),w=Math.round(ATLAS_LOGICAL_W*d),h=Math.round(ATLAS_LOGICAL_H*d);if(atlasCanvas.width!==w||atlasCanvas.height!==h){atlasCanvas.width=w;atlasCanvas.height=h;atlasDirty=true}}
 const atlasPointers=new Map();
+function pathwayKey(resource,threshold){return `${resource}${threshold}`}
+function pathwayDiscovered(node){return !node.resource||!!state.discoveredPathways?.[pathwayKey(node.resource,node.threshold)]}
+function pathwayReserveMet(node){return !node.resource||(state.inventory[node.resource]||0)>=node.threshold}
+function checkDevelopmentalThresholds(announce=true){
+ state.discoveredPathways=state.discoveredPathways&&typeof state.discoveredPathways==="object"?state.discoveredPathways:{};
+ const found=[];
+ for(const [resource,path] of Object.entries(BIOCHEMICAL_PATHWAYS))for(const threshold of path.thresholds){
+  const key=pathwayKey(resource,threshold);
+  if((state.inventory[resource]||0)>=threshold&&!state.discoveredPathways[key]){state.discoveredPathways[key]=true;found.push({resource,threshold,path})}
+ }
+ if(found.length){atlasDirty=true;const last=found.at(-1);state.newPathway=pathwayKey(last.resource,last.threshold);if(announce){toast(`NEW BIOCHEMICAL PATHWAY · ${last.path.name} ${last.threshold}`);log(`${last.path.name} threshold ${last.threshold} discovered; new Atlas tissue emerged.`);const n=BIOCHEMICAL_NODES.find(x=>x.resource===last.resource&&x.threshold===last.threshold);if(n&&ATLAS_POS[n.id]){state.atlasView.x=ATLAS_POS[n.id].x;state.atlasView.y=ATLAS_POS[n.id].y;state.atlasView.zoom=1.35;clampAtlasView()}}}
+ return found.length
+}
 function atlasStatus(node){
  if(gene(node.id))return"owned";
+ if(node.resource&&!pathwayReserveMet(node))return"reserve";
  if(nodeAvailable(node))return"available";
  const prereqDistance=node.req.filter(r=>!gene(r)).length;
  const pressure=(state.pressures[node.axis]||0)+(BIOMES[state.biome].pressure[node.axis]||0)*5;
@@ -158,6 +259,7 @@ function atlasStatus(node){
  return"locked";
 }
 function atlasVisible(node){
+ if(node.resource&&!pathwayDiscovered(node))return false;
  const status=atlasStatus(node);
  if(status!=="locked")return true;
  if(node.req.some(gene))return true;
@@ -234,7 +336,8 @@ function showAtlasTooltip(node,e){
  const thresholdMissing=Object.entries(node.min||{}).filter(([a,v])=>derivedAxis(a)<v).map(([a,v])=>`${AXES[a].name} ${derivedAxis(a)}/${v}`);
  const reqText=node.req.length?node.req.map(r=>`${gene(r)?"✓":"○"} ${ATLAS.find(x=>x.id===r)?.name||r}`).join("<br>"):"✓ Basal innovation";
  const statText=Object.entries(node.min||{}).map(([a,v])=>`${derivedAxis(a)>=v?"✓":"○"} ${AXES[a].name}: ${derivedAxis(a)} / ${v}`).join("<br>")||"No capacity threshold";
- box.innerHTML=`<b>${node.icon} ${node.name}</b><span class="tip-tier">${AXES[node.axis].icon} ${AXES[node.axis].name} · Tier ${node.tier}</span>${node.desc}<strong>${node.effect}</strong><small><u>PREREQUISITES</u><br>${reqText}<br><u>CAPACITY THRESHOLDS</u><br>${statText}<br><u>STATUS</u><br>${status==="owned"?"Fixed in lineage":status==="available"?"Accessible at next major evolution":status==="pressured"?"Developmentally favoured but still locked":"Distant developmental possibility"}</small>`;
+ const reserveText=node.resource?`<br><u>BIOCHEMICAL RESERVE</u><br>${pathwayReserveMet(node)?"✓":"○"} ${FOOD[node.resource].name}: ${state.inventory[node.resource]||0} / ${node.threshold}<br>Discovery is permanent; access requires the reserve to be rebuilt.`:"";
+ box.innerHTML=`<b>${node.icon} ${node.name}</b><span class="tip-tier">${AXES[node.axis].icon} ${AXES[node.axis].name} · Tier ${node.tier}</span>${node.desc}<strong>${node.effect}</strong><small><u>PREREQUISITES</u><br>${reqText}<br><u>CAPACITY THRESHOLDS</u><br>${statText}${reserveText}<br><u>STATUS</u><br>${status==="owned"?"Fixed in lineage":status==="available"?"Accessible at next major evolution":status==="reserve"?"Known pathway; biochemical reserve currently insufficient":status==="pressured"?"Developmentally favoured but still locked":"Distant developmental possibility"}</small>`;
  box.hidden=false;
  const rect=atlasCanvas.getBoundingClientRect(),bw=box.offsetWidth||210,bh=box.offsetHeight||125;
  box.style.left=clamp(e.clientX-rect.left+8,6,Math.max(6,rect.width-bw-6))+"px";
@@ -245,6 +348,7 @@ function atlasNodeColor(status,node){
  if(status==="owned")return"#8cff9c";
  if(status==="available")return"#ffd66a";
  if(status==="pressured")return"#dba0ff";
+ if(status==="reserve")return"#42504a";
  return"#294036"
 }
 function drawAtlas(now=performance.now()){
@@ -324,9 +428,10 @@ function fresh(){
  axes:baseAxes(),pressures:basePressures(),lifetimePressure:basePressures(),
  genes:[],pendingEpochs:0,completedEpochs:0,epochFeed:{},epochForecast:[],
  inventory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},
+ discoveredPathways:{},newPathway:null,
  atlasView:{x:430,y:360,zoom:1},
- dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],encounter:null,interactionTarget:null,lastTileKey:"",
- symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},lineageActions:{hunts:0,engulfs:0,migrations:0,mergers:0,signals:0,inspections:0,niches:0,rests:0,scavenges:0,harshCycles:0},buildVersion:BUILD_VERSION,resources:[],organisms:[],logs:[],lastInteraction:0
+ dietMemory:{sugar:0,lipid:0,amino:0,mineral:0,pigment:0,spore:0},dietHistory:[],nutritionSequence:[],metabolicState:null,metabolicDisorder:null,discoveredCuisine:[],cuisineReinforcement:{},lastCuisineSignature:"",cuisinePatternLatch:"",encounter:null,interactionTarget:null,lastTileKey:"",
+ symbionts:[],effects:[],niches:[],patches:[],carcasses:[],particles:[],ambient:[],restAnchor:null,weather:makeWeather(),camera:{lookX:0,lookY:0,zoom:1,eventX:null,eventY:null,eventTimer:0},ecosystem:{births:0,deaths:0,mergers:0,hunts:0},lineageActions:{hunts:0,engulfs:0,migrations:0,mergers:0,signals:0,inspections:0,niches:0,rests:0,scavenges:0,harshCycles:0},buildVersion:BUILD_VERSION,saveSchema:SAVE_SCHEMA,migrationReport:"New lineage · schema 4",resources:[],organisms:[],logs:[],lastInteraction:0
  };
 }
 let state=fresh();
@@ -349,8 +454,9 @@ function addXP(n,reason){
  }
 }
 function xpNeeded(){return XP_BASE+Math.max(0,state.level-1)*18}
+function biochemicalAxisBonus(axis){return BIOCHEMICAL_NODES.filter(n=>n.axis===axis&&gene(n.id)).reduce((sum,n)=>sum+(n.threshold===80?2:1),0)}
 function derivedAxis(axis){
- let v=state.axes[axis]||1;
+ let v=(state.axes[axis]||1)+biochemicalAxisBonus(axis)+metabolicAxisModifier(axis);
  for(const id of state.genes){const node=ATLAS.find(n=>n.id===id);if(node?.axis===axis)v+=node.tier*.35}
  for(const id of state.symbionts||[]){const m=moduleById(id);if(m?.axis===axis)v+=.45}
  const diet=dietAxisBonus(axis);v+=Math.min(1.5,diet*.035);
@@ -371,16 +477,17 @@ function moduleCount(effect){return state.symbionts.filter(id=>moduleById(id)?.e
 function phenotype(){
  const flag=moduleCount("speed"),armour=moduleCount("armour"),detox=moduleCount("detox"),signal=moduleCount("signal");
  return{
- speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex")?.92:1)*(1+flag*.09),
- force:(1+(derivedAxis("power")-1)*.08)*(gene("contractile cortex")?1.15:1)*(gene("mineral scaffold")?1.3:1),
- defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1)*(1+armour*.12),
- waterUse:(gene("selective membrane")?.82:1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025)),
+ speed:(1+(derivedAxis("mobility")-1)*.055)*(gene("cilia")?1.22:1)*(gene("directed locomotion")?1.3:1)*(gene("armoured cortex")?.92:1)*(1+flag*.09)*metabolicModifier("speed"),
+ force:(1+(derivedAxis("power")-1)*.08)*(gene("contractile cortex")?1.15:1)*(gene("mineral scaffold")?1.3:1)*metabolicModifier("force"),
+ defense:(1+(derivedAxis("resilience")-1)*.07)*(gene("stress response")?1.15:1)*(gene("armoured cortex")?1.3:1)*(1+armour*.12)*metabolicModifier("defense"),
+ waterUse:(gene("selective membrane")?.82:1)*(1-Math.min(.35,(derivedAxis("resilience")-1)*.025))*metabolicModifier("waterUse"),
+ energyUse:metabolicModifier("energyUse"),
  detection:130*(1+(derivedAxis("cognition")-1)*.08)*(gene("chemical sensing")?1.25:1)*(gene("electroreception")?1.55:1),
  foodYield:(gene("feeding groove")?1.2:1)*(gene("pseudopods")?1.12:1)*(state.origin==="crawler"?1.08:1),
  interactionRange:90*(gene("surface exchange")?1.2:1)*(1+(derivedAxis("communication")-1)*.04)*(1+signal*.1),
  plasticity:(1+(derivedAxis("adaptability")-1)*.06)*(state.origin==="vesicle"?1.10:1),
- innovation:1+(derivedAxis("innovation")-1)*.045,
- communication:(1+(derivedAxis("communication")-1)*.05)*(state.origin==="colony"?1.08:1),
+ innovation:(1+(derivedAxis("innovation")-1)*.045)*metabolicModifier("innovation"),
+ communication:(1+(derivedAxis("communication")-1)*.05)*(state.origin==="colony"?1.08:1)*metabolicModifier("communication"),
  cognition:(1+(derivedAxis("cognition")-1)*.06)*(state.origin==="colony"?1.06:1)
  };
 }
@@ -391,7 +498,7 @@ function fit(){
  if(b.hazard>60)f+=gene("detoxification")?22:gene("stress response")?8:-18;
  if(gene("phenotypic plasticity"))f+=(50-f)*.25;
  if(gene("adaptive radiation"))f+=(75-f)*.35;
- f+=(100-f)*Math.min(.22,(derivedAxis("adaptability")-1)*.018);
+ f+=(100-f)*Math.min(.22,(derivedAxis("adaptability")-1)*.018);f+=activeCuisine()?.mods?.environment?8:0;
  return clamp(f);
 }
 function cameraScale(){const base=1/Math.pow(state.mass,.2);return clamp(base*ECO_CONFIG.viewMultiplier*(state.camera?.zoom||1),.25,.94)}
@@ -406,6 +513,22 @@ function morphologyComplexity(){
  return Math.max(0,Math.round(Number.isFinite(score)?score:0));
 }
 function morphologyStage(){const c=morphologyComplexity();return c<8?0:c<18?1:c<32?2:c<50?3:c<72?4:5}
+function biochemicalMorphologyLevel(resource){
+ const ids=BIOCHEMICAL_NODES.filter(n=>n.resource===resource).map(n=>n.id);
+ return ids.reduce((sum,id)=>sum+(gene(id)?1:0),0);
+}
+function morphologyProfile(){
+ const levels={mineral:biochemicalMorphologyLevel("mineral"),spore:biochemicalMorphologyLevel("spore"),pigment:biochemicalMorphologyLevel("pigment"),lipid:biochemicalMorphologyLevel("lipid"),amino:biochemicalMorphologyLevel("amino")};
+ const reinforced=Object.entries(state.cuisineReinforcement||{}).filter(([,n])=>n>=3).map(([id])=>id);
+ const traits=[];
+ if(levels.mineral)traits.push(levels.mineral>=4?"fortress carapace":levels.mineral>=2?"crystalline armour":"mineral nodules");
+ if(levels.amino)traits.push(levels.amino>=4?"apex feeding limbs":levels.amino>=2?"dense contractile frame":"contractile fibres");
+ if(levels.lipid)traits.push(levels.lipid>=4?"integrated energy lobes":levels.lipid>=2?"elastic vacuolar body":"lipid vesicles");
+ if(levels.spore)traits.push(levels.spore>=4?"multispecies brood crown":levels.spore>=2?"distributed symbiotic buds":"spore pores");
+ if(levels.pigment)traits.push(levels.pigment>=4?"dynamic chromatic language":levels.pigment>=2?"photoreactive bands":"pigment vesicles");
+ for(const id of reinforced){const c=cuisineDefinition(id);if(c)traits.push(`conditioned ${c.morph}`)}
+ return{levels,reinforced,traits:[...new Set(traits)]};
+}
 function morphologyName(){
  const stage=morphologyStage(),style=lineageStyle().id;
  const base=["Ancestral Cell","Differentiated Microform","Specialised Organism","Integrated Body Plan","Chitinous Ascendant","Brood Apex"][stage];
@@ -416,7 +539,7 @@ function drawMorphology(x,y,r,main,isPlayer=true,entity=null){
  const stage=isPlayer?morphologyStage():Math.min(4,Math.max(0,Math.floor(Math.log2((entity?.mass||1)+1))));
  const phase=isPlayer?state.tick*.035:(entity?.phase||0),dark="#10271f",light="#e8ffda";
  const has=id=>isPlayer?gene(id):false;
- const sym=isPlayer?(state.symbionts||[]):entity?.module?[entity.module]:[];
+ const sym=isPlayer?(state.symbionts||[]):entity?.module?[entity.module]:[];const profile=isPlayer?morphologyProfile():{levels:{mineral:0,spore:0,pigment:0,lipid:0,amino:0},reinforced:[]};
  ctx.save();ctx.translate(x,y);ctx.rotate(isPlayer?Math.atan2(state.vy,state.vx||.001)*.12:Math.atan2(entity?.vy||0,entity?.vx||.001)*.16);
  const breathe=1+Math.sin(phase)*.025;ctx.scale(breathe,1/breathe);
  ctx.shadowBlur=isPlayer?13:6;ctx.shadowColor=main;
@@ -446,10 +569,31 @@ function drawMorphology(x,y,r,main,isPlayer=true,entity=null){
  if(has("toxin organelle")){ctx.shadowBlur=8;ctx.shadowColor="#dba0ff";circle(-r*.18,r*.3,r*.22,"#dba0ff","#f5ddff",1);ctx.shadowBlur=0}
  if(has("photosymbiosis")){for(let i=0;i<4;i++){const a=i/4*Math.PI*2;circle(Math.cos(a)*r*.48,Math.sin(a)*r*.48,r*.12,"#ffd66a")}}
  if(has("segmented body")&&stage<4){ctx.strokeStyle=dark;ctx.lineWidth=Math.max(1,r*.08);for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*r*.25,-r*.65);ctx.lineTo(i*r*.25,r*.65);ctx.stroke()}}
+ // Permanent biochemical anatomy: fixed Atlas nodes physically remodel the body.
+ if(isPlayer&&profile.levels.mineral){const n=profile.levels.mineral;ctx.strokeStyle=n>=3?"#fff0d1":"#f2b38d";ctx.lineWidth=Math.max(1.5,r*(.055+n*.012));for(let i=0;i<4+n;i++){const a=i/(4+n)*Math.PI*2;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.76,Math.sin(a)*r*.76);ctx.lineTo(Math.cos(a)*r*(.94+n*.07),Math.sin(a)*r*(.94+n*.07));ctx.stroke()}}
+ if(isPlayer&&profile.levels.amino){const n=profile.levels.amino;ctx.strokeStyle="#91ff9c";ctx.lineWidth=Math.max(2,r*(.07+n*.018));for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(r*.22,side*r*.42);ctx.quadraticCurveTo(r*(.85+n*.1),side*r*(.58+n*.05),r*(.92+n*.08),side*r*(.92+n*.08));ctx.stroke()}}
+ if(isPlayer&&profile.levels.lipid){const n=profile.levels.lipid;for(let i=0;i<Math.min(6,2+n);i++){const a=i/Math.min(6,2+n)*Math.PI*2+phase*.08;circle(Math.cos(a)*r*.52,Math.sin(a)*r*.52,r*(.09+n*.018),"rgba(255,214,106,.72)","#fff4bd",1)}}
+ if(isPlayer&&profile.levels.spore){const n=profile.levels.spore;for(let i=0;i<2+n;i++){const a=Math.PI+(i/(1+n)-.5)*1.45;const rr=r*(.82+n*.035);circle(Math.cos(a)*rr,Math.sin(a)*rr,r*(.07+n*.014),"#ddb477","#fff0cd",1)}}
+ if(isPlayer&&profile.levels.pigment){const n=profile.levels.pigment;ctx.strokeStyle=n>=4?`hsl(${(state.tick*2)%360} 90% 72%)`:"#7de0ff";ctx.globalAlpha=.55+.15*Math.sin(phase*1.4);ctx.lineWidth=Math.max(1.5,r*.065);for(let i=0;i<n+1;i++){ctx.beginPath();ctx.arc(0,0,r*(.34+i*.12),-.8,.8);ctx.stroke()}ctx.globalAlpha=1}
  // Sensor cluster replaces the old static cartoon eye as complexity rises.
  const eyes=stage>=4?3:1;for(let i=0;i<eyes;i++){const ey=-r*.26+i*r*.26-(eyes-1)*r*.13;circle(r*.48,ey,r*(stage>=4?.11:.16),light);circle(r*.51,ey,r*.045,"#06100c")}
  sym.forEach((id,i)=>drawModuleAt(0,0,r,id,i,sym.length));
  if((isPlayer&&(moduleCount("pulse")||has("electroreception")))){ctx.strokeStyle="#7de0ff";ctx.globalAlpha=.45+.2*Math.sin(state.tick*.08);ctx.beginPath();ctx.arc(0,0,r*1.45,0,Math.PI*2);ctx.stroke()}
+ if(isPlayer){
+  const cuisine=activeCuisine(),disorder=activeDisorder();
+  if(cuisine?.id==="crystal_skin"){ctx.strokeStyle="#e8fbff";ctx.lineWidth=Math.max(1,r*.08);for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*.72,Math.sin(a)*r*.72);ctx.lineTo(Math.cos(a)*r*1.18,Math.sin(a)*r*1.18);ctx.stroke()}}
+  if(cuisine?.id==="adaptive_biofilm"){ctx.strokeStyle="#8cffc4";ctx.globalAlpha=.5;ctx.lineWidth=Math.max(2,r*.12);ctx.beginPath();ctx.arc(0,0,r*1.08,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1}
+  if(cuisine?.id==="contractile_burst"){ctx.strokeStyle="#91ff9c";ctx.lineWidth=Math.max(1,r*.06);for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(-r*.6,i*r*.2);ctx.lineTo(r*.65,i*r*.16);ctx.stroke()}}
+  if(cuisine?.id==="floating_bloom"){for(let i=0;i<4;i++){const a=i/4*Math.PI*2+phase*.2;circle(Math.cos(a)*r*.58,Math.sin(a)*r*.58,r*.13,"#ffd66a","#fff4bd",1)}}
+  if(cuisine?.id==="living_colony_cuisine"){for(let i=0;i<5;i++){const a=i/5*Math.PI*2;circle(Math.cos(a)*r*.92,Math.sin(a)*r*.92,r*.1,"#ddb477")}}
+  if(cuisine?.id==="warning_coloration"||disorder?.id==="chromatic_overexpression"){ctx.strokeStyle="#ffb6e8";ctx.lineWidth=Math.max(2,r*.12);for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(i*r*.25,-r*.72);ctx.lineTo(i*r*.25,r*.72);ctx.stroke()}}
+  if(disorder?.id==="spore_toxicity"){for(let i=0;i<7;i++){const a=i/7*Math.PI*2+phase*.15;circle(Math.cos(a)*r*1.12,Math.sin(a)*r*1.12,r*.055,"#b89a6a")}}
+  if(disorder?.id==="mineral_saturation"){ctx.fillStyle="#c77c5d";for(let i=0;i<5;i++){const a=i/5*Math.PI*2;ctx.fillRect(Math.cos(a)*r*.72-2,Math.sin(a)*r*.72-2,r*.22,r*.22)}}
+  if(disorder?.id==="protein_overload"){ctx.strokeStyle="#ff9b8b";ctx.lineWidth=Math.max(2,r*.1);ctx.beginPath();ctx.ellipse(0,0,r*1.12,r*.72,0,0,Math.PI*2);ctx.stroke()}
+  if(disorder?.id==="lipid_storage"){ctx.fillStyle="rgba(255,214,106,.28)";ctx.beginPath();ctx.ellipse(-r*.2,0,r*.92,r*.78,0,0,Math.PI*2);ctx.fill()}
+  if(disorder?.id==="glycolytic_crash"){ctx.globalAlpha=.4+.25*Math.sin(phase*4);ctx.fillStyle="#ffb6a6";ctx.beginPath();ctx.arc(0,0,r*.72,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1}
+  if(disorder){ctx.strokeStyle="#ff7777";ctx.globalAlpha=.35+.18*Math.sin(phase*2);ctx.setLineDash([3,4]);ctx.beginPath();ctx.arc(0,0,r*1.28,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1}
+ }
  ctx.restore();
 }
 
@@ -587,14 +731,19 @@ function collect(){
   if(Math.hypot(r.x-state.x,r.y-state.y)<radius()+10){
    const e=FOOD[r.type].energy*phenotype().foodYield;
    if(state.energy<58){state.energy=clamp(state.energy+e);log(`${FOOD[r.type].name} metabolised (+${Math.round(e)} energy).`)}
-   else{state.inventory[r.type]++;log(`${FOOD[r.type].name} stored for future development.`)}
+   else{state.inventory[r.type]++;checkDevelopmentalThresholds();log(`${FOOD[r.type].name} stored for future development.`)}
    rememberDiet(r.type,.55);addPressure(FOOD[r.type].axis,.5);addXP(gene("pseudopods")?6:5,`Resource acquired: ${FOOD[r.type].name}`);state.resources.splice(i,1);save();
   }
  }
 }
+let lastPackConsumeAt=0;
 function consumeResource(type){
- if(!state.inventory[type])return;
- state.inventory[type]--;state.energy=clamp(state.energy+FOOD[type].energy*phenotype().foodYield);rememberDiet(type,1.5);addPressure(FOOD[type].axis,1.1);log(`${FOOD[type].name} consumed from backpack.`);renderAll();save()
+ const now=performance.now();if(now-lastPackConsumeAt<240)return;
+ if(!state.inventory[type]){toast("PACK RESOURCE DEPLETED");return}
+ lastPackConsumeAt=now;
+ const beforeEnergy=state.energy;
+ state.inventory[type]--;checkDevelopmentalThresholds(false);state.energy=clamp(state.energy+FOOD[type].energy*phenotype().foodYield);rememberDiet(type,1.5);recordNutritionalConsumption(type);addPressure(FOOD[type].axis,1.1);
+ const gained=Math.max(0,Math.round(state.energy-beforeEnergy));log(`${FOOD[type].name} consumed from Pack · +${gained} energy.`);renderAll();save()
 }
 function spendAdapt(axis){
  if(state.adaptPoints<=0)return;state.adaptPoints--;state.axes[axis]++;atlasDirty=true;log(`${AXES[axis].name} permanently increased.`);renderAll();save()
@@ -657,7 +806,7 @@ function mergeSupplyType(o){
 function addMergeSupplies(o,count=2){
  const primary=mergeSupplyType(o),pool=[primary,primary,"sugar","lipid","amino","mineral","pigment","spore"],gained={};
  for(let i=0;i<count;i++){const type=choice(pool);state.inventory[type]=(state.inventory[type]||0)+1;gained[type]=(gained[type]||0)+1}
- return Object.entries(gained).map(([type,n])=>`${n}× ${FOOD[type].name}`).join(", ")
+ checkDevelopmentalThresholds();return Object.entries(gained).map(([type,n])=>`${n}× ${FOOD[type].name}`).join(", ")
 }
 function relationScore(o){
  return (derivedAxis("communication")*1.4+derivedAxis("cognition")*.9+state.health/25)
@@ -769,7 +918,7 @@ function ecologyTick(){
    const shelter=(tile.shelter?1.5:1)*nicheBonus();
    state.energy=clamp(state.energy+3.8*shelter);state.health=clamp(state.health+(gene("repair cycle")?4.8:2.8)*shelter);state.water=clamp(state.water-.1*p.waterUse)
  }else{
-   state.energy=clamp(state.energy-(1.6+Math.log2(state.mass+1)*.22)*roughCost);
+   state.energy=clamp(state.energy-(1.6+Math.log2(state.mass+1)*.22)*roughCost*p.energyUse);
    state.water=clamp(state.water-(b.moisture<20?4.5:1.6)*p.waterUse)
  }
  if(tile.water){
@@ -791,7 +940,7 @@ function ecologyTick(){
 }
 
 function nodeAvailable(node){
- return !gene(node.id)&&node.req.every(gene)&&Object.entries(node.min||{}).every(([a,v])=>derivedAxis(a)>=v)
+ return !gene(node.id)&&pathwayDiscovered(node)&&pathwayReserveMet(node)&&node.req.every(gene)&&Object.entries(node.min||{}).every(([a,v])=>derivedAxis(a)>=v)
 }
 function epochNumber(){return state.completedEpochs+1}
 function simulationPaused(){
@@ -857,7 +1006,7 @@ function completeEpoch(id){
  const node=state.epochForecast.find(n=>n.id===id);
  if(!node)return;
  if(!id.startsWith("fallback:")&&!nodeAvailable(node)){toast("EVOLUTION NO LONGER ACCESSIBLE");buildForecast();return}
- Object.entries(state.epochFeed).forEach(([t,n])=>state.inventory[t]=Math.max(0,state.inventory[t]-n));
+ Object.entries(state.epochFeed).forEach(([t,n])=>state.inventory[t]=Math.max(0,state.inventory[t]-n));checkDevelopmentalThresholds(false);
  if(id.startsWith("fallback:")){
    state.axes[node.axis]++;state.bodyPlan=node.name;atlasDirty=true;
  }else{
@@ -1003,7 +1152,7 @@ function renderMeters(){
 function renderLineage(){
  atlasDirty=true;const o=ORIGINS.find(x=>x.id===state.origin);
  $("originLabel").textContent=o?.name||"UNFORMED ANCESTOR";$("bodyPlanLabel").textContent=state.bodyPlan.toUpperCase();
- $("lineageMeta").textContent=`Generation ${state.generation} · Epoch ${state.completedEpochs} · Complexity ${morphologyComplexity()} · ${morphologyName()}`;
+ $("lineageMeta").textContent=`Generation ${state.generation} · Epoch ${state.completedEpochs} · Complexity ${morphologyComplexity()} · ${morphologyName()}`;const mp=morphologyProfile(),activeMorph=[activeCuisine()?.morph,activeDisorder()?.name].filter(Boolean).join(" · ");$("morphologyReadout").innerHTML=`<b>${morphologyName().toUpperCase()}</b><br>${mp.traits.length?mp.traits.join(" · "):"No specialised biochemical anatomy fixed yet."}${activeMorph?`<br><span class="morph-active">ACTIVE TRANSFORMATION · ${activeMorph}</span>`:""}<br><small>Cuisine transformations become conditioned anatomy after three separate activations.</small>`;
  $("lineageLevel").textContent=state.level;$("xpText").textContent=`${Math.floor(state.xp)} / ${xpNeeded()}`;
  bar("lineageXpBar",state.xp/xpNeeded()*100,"var(--purple)");
  $("epochHint").textContent=state.pendingEpochs>0?`${state.pendingEpochs} major evolution${state.pendingEpochs>1?"s":""} ready`:`Next major evolution at level ${Math.ceil((state.level+1)/5)*5}`;
@@ -1012,14 +1161,16 @@ function renderLineage(){
  document.querySelectorAll("[data-axis]").forEach(b=>b.onclick=()=>spendAdapt(b.dataset.axis));
  const p=phenotype();$("phenotypeCards").innerHTML=[["Locomotion",`${p.speed.toFixed(2)}× movement performance`],["Mechanical force",`${p.force.toFixed(2)}× feeding and attack force`],["Stress defence",`${p.defense.toFixed(2)}× injury buffering`],["Ecological fit",`${Math.round(fit())}% in ${BIOMES[state.biome].name}`]].map(([a,b])=>`<div class="card"><b>${a}</b>${b}</div>`).join("");
  $("pressureBars").innerHTML=Object.entries(state.pressures).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="pressure-row"><span>${AXES[k].name}<b>${Math.round(v)}</b></span><i><em style="width:${clamp(v)}%"></em></i></div>`).join("");
- $("atlasSummary").textContent=`${lineageIdentity()} · ${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · origin resonance favours ${Object.keys(originDef()?.bias||{}).slice(0,3).map(a=>AXES[a].name).join(" / ")}`;
+ const discovered=Object.keys(state.discoveredPathways||{}).length;
+ $("atlasSummary").textContent=`${lineageIdentity()} · ${state.genes.length} fixed innovations · ${ATLAS.filter(nodeAvailable).length} accessible · ${discovered}/20 biochemical thresholds discovered · origin resonance favours ${Object.keys(originDef()?.bias||{}).slice(0,3).map(a=>AXES[a].name).join(" / ")}`;
 }function renderInventory(){
- const recent=state.dietHistory.slice(-6).map(t=>FOOD[t].name).join(" → ")||"No recent feeding";
+ const recent=(state.nutritionSequence||[]).map((t,i)=>`<span class="nutrition-chip" style="--nutrient:${FOOD[t].color}" title="${i+1}. ${FOOD[t].name}"><i></i>${FOOD[t].name}</span>`).join("")||`<span class="nutrition-empty">No deliberate Pack consumption</span>`;
  const strongest=Object.entries(state.dietMemory).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${FOOD[k].name} ${v.toFixed(1)}`).join(" · ");
- $("dietReadout").innerHTML=`<b>NUTRITIONAL MEMORY</b><br>${recent}<br>Dominant imprints: ${strongest||"none yet"}`;
- $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>`<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]}</em><b style="color:${f.color}">◆</b><span>${f.name.toUpperCase()}</span><small>energy +${Math.round(f.energy*phenotype().foodYield)}<br><span class="imprint">${f.imprint}</span></small></button>`).join("");
+ const cuisine=activeCuisine(),disorder=activeDisorder();
+ $("dietReadout").innerHTML=`<div class="diet-heading"><b>NUTRITIONAL MEMORY</b><span>${(state.nutritionSequence||[]).length}/8</span></div><div class="nutrition-chain">${recent}</div><b>${cuisine?`${cuisine.icon} ${cuisine.name} · ${state.metabolicState.meals} meals remaining`:"No active cuisine state"}</b>${cuisine?`<br>${cuisine.desc}`:""}${disorder?`<br><span class="danger"><b>${disorder.icon} ${disorder.name} · ${state.metabolicDisorder.meals} meals remaining</b><br>${disorder.desc}</span>`:""}<br>Long-term imprints: ${strongest||"none yet"}`;
+ $("inventoryGrid").innerHTML=Object.entries(FOOD).map(([k,f])=>{const path=BIOCHEMICAL_PATHWAYS[k],next=path?.thresholds.find(v=>!state.discoveredPathways?.[pathwayKey(k,v)]);return `<button class="inventory-item" data-resource="${k}" ${state.inventory[k]?"":"disabled"}><em>x${state.inventory[k]}${next?` · next ${next}`:path?" · complete":""}</em><b style="color:${f.color}">◆</b><span>${f.name.toUpperCase()}</span><small>energy +${Math.round(f.energy*phenotype().foodYield)}<br><span class="imprint">${f.imprint}</span>${path?`<br><span class="imprint">${path.name}</span>`:""}</small></button>`}).join("");
  document.querySelectorAll("[data-resource]").forEach(b=>b.onclick=()=>consumeResource(b.dataset.resource));
- $("recipeCards").innerHTML=DIET_RECIPES.map(r=>{const strength=recipeStrength(r),active=strength>=1;return`<div class="recipe-card ${active?"active":""}"><b>${active?"◆":"◇"} ${r.name}</b>${r.desc}<br><small>${Object.entries(r.needs).map(([k,n])=>`${n} ${FOOD[k].name}`).join(" + ")} · ${active?"ACTIVE IMPRINT":Math.round(strength*100)+"% formed"}</small></div>`}).join("")
+ $("recipeCards").innerHTML=`<div class="recipe-card active"><b>EVOLUTIONARY CUISINE CODEX · ${state.discoveredCuisine.length}/${CUISINE_STATES.length}</b>Consume Pack resources in deliberate sequences. Exact recipes and broader dietary patterns can produce temporary physiology and visible morphology. Six identical consumptions trigger overload.</div>`+CUISINE_STATES.map(r=>{const known=state.discoveredCuisine.includes(r.id),active=state.metabolicState?.id===r.id;return`<div class="recipe-card ${active?"active":""}"><b>${known?(active?"◆":"◇"):"?"} ${known?r.name:"UNDISCOVERED METABOLIC STATE"}</b>${known?r.desc:"Its nutritional sequence remains unknown."}<br><small>${known?r.discovery:"Experiment with order, diversity and repetition."}${active?` · ACTIVE FOR ${state.metabolicState.meals} MORE MEALS`:""}</small></div>`}).join("")
 }
 function renderEcology(){
  const tile=localTile(),p=phenotype();
@@ -1037,7 +1188,7 @@ function renderEcology(){
  const here=state.niches.filter(n=>n.biome===state.biome);
  $("nicheCards").innerHTML=here.length?here.sort((a,b)=>b.strength-a.strength).slice(0,6).map(n=>`<div class="niche-card"><b>${n.type}</b>${Math.round(n.strength)}% conditioned · ${n.rests} rest deposits<div class="niche-meter"><em style="width:${n.strength}%"></em></div></div>`).join(""):`<div class="card"><b>No conditioned niche</b>Rest repeatedly in one location to create a persistent healing environment.</div>`
 }
-function renderLog(){$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
+function renderLog(){const m=$("migrationStatus");if(m)m.innerHTML=`<b>SAVE INTEGRITY</b><span>${state.migrationReport||"Current save verified"}</span><small>Build ${BUILD_VERSION} · schema ${state.saveSchema||SAVE_SCHEMA}</small>`;$("logList").innerHTML=state.logs.map(x=>`<div>${x}</div>`).join("")}
 function renderAll(){renderTile();$("cycleLabel").textContent=`CYCLE ${state.cycle}`;$("biomeLabel").textContent=BIOMES[state.biome].name;const h=$("cycleHistory");if(h)h.textContent=state.logs[0]?.replace(/^Cycle \d+: /,"")||"Lineage newly emerged";renderMode();renderMeters();renderLineage();renderInventory();renderEcology();renderLog()}
 
 function inspectionTier(){
@@ -1107,43 +1258,45 @@ function bind(){
  canvas.addEventListener("pointerdown",pointerStart,{passive:false});canvas.addEventListener("pointermove",pointerMove,{passive:false});canvas.addEventListener("pointerup",pointerEnd,{passive:false});canvas.addEventListener("pointercancel",pointerCancel,{passive:false});
  $("forageBtn").onclick=forageToggle;$("restBtn").onclick=restToggle;$("interactBtn").onclick=interact;$("migrateBtn").onclick=migrate;$("encounterCloseBtn").onclick=closeEncounter;$("interactionCancelBtn").onclick=cancelInteraction;document.querySelectorAll("[data-intent]").forEach(b=>b.onclick=()=>resolveIntent(b.dataset.intent));
  $("forecastBtn").onclick=buildForecast;$("backToFeedBtn").onclick=()=>{$("epochFeedStage").hidden=false;$("epochForecastStage").hidden=true};
- $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
+ $("restartBtn").onclick=()=>{if(confirm("End this lineage and erase its autosave?")){[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));location.reload()}};
  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab,.tab-content").forEach(x=>x.classList.remove("active"));t.classList.add("active");$(t.dataset.tab+"Tab").classList.add("active");$("atlasTooltip").hidden=true;atlasDirty=true;if(t.dataset.tab==="lineage")requestAnimationFrame(drawAtlas)})
 }
-function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));$("saveStatus").textContent="saved";setTimeout(()=>$("saveStatus").textContent="autosaving",700)}catch(e){}}
+function save(){try{state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;const encoded=JSON.stringify(state);const existing=localStorage.getItem(SAVE_KEY);if(existing)localStorage.setItem(BACKUP_SAVE_KEY,existing);localStorage.setItem(SAVE_KEY,encoded);$("saveStatus").textContent="saved · schema 4";setTimeout(()=>$("saveStatus").textContent="autosaving",900)}catch(e){$("saveStatus").textContent="save unavailable"}}
 function load(){
- const raw=localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY)||OLDER_SAVE_KEYS.map(k=>localStorage.getItem(k)).find(Boolean);
- if(!raw)return false;
- try{
-  const b=fresh(),x=JSON.parse(raw);state=Object.assign(b,x);
-  state.axes=Object.assign(b.axes,x.axes||{});Object.keys(AXES).forEach(a=>state.axes[a]=Math.max(1,Number(state.axes[a])||1));
-  state.pressures=Object.assign(b.pressures,x.pressures||{});Object.keys(AXES).forEach(a=>state.pressures[a]=Math.max(0,Number(state.pressures[a])||0));
-  state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});Object.keys(AXES).forEach(a=>state.lifetimePressure[a]=Math.max(0,Number(state.lifetimePressure[a])||0));state.inventory=Object.assign(b.inventory,x.inventory||{});state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
-  state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
-  if(!ORIGINS.some(o=>o.id===state.origin))state.origin=null;
-  const origin=ORIGINS.find(o=>o.id===state.origin);if(origin&&!state.genes.includes(origin.gene))state.genes.unshift(origin.gene);
-  state.level=Math.max(1,Math.floor(Number(state.level)||1));state.mass=Math.max(.2,Number(state.mass)||1);state.generation=Math.max(1,Math.floor(Number(state.generation)||1));
-  state.energy=clamp(Number(state.energy)||0);state.water=clamp(Number(state.water)||0);state.health=clamp(Number(state.health)||0);
-  state.resources=Array.isArray(x.resources)?x.resources.filter(r=>r&&FOOD[r.type]&&Number.isFinite(r.x)&&Number.isFinite(r.y)).map(r=>Object.assign({phase:0},r)):[];
-  state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,defense:ORGANISM_DEFENSES[o.defense]?o.defense:"mucus",stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
-  state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];
-  state.effects=Array.isArray(x.effects)?x.effects.filter(e=>e&&EFFECT_TYPES[e.type]&&[e.x,e.y,e.radius,e.life].every(Number.isFinite)).map(e=>Object.assign({power:1,owner:"player",phase:0},e)):[];
-  state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
-  state.patches=Array.isArray(x.patches)?x.patches.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>Object.assign(makePatch("microbial",p.x,p.y),p)).slice(0,ECO_CONFIG.maxPatches):[];
-  state.carcasses=Array.isArray(x.carcasses)?x.carcasses.filter(c=>c&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&Number.isFinite(c.nutrition)).map(c=>Object.assign({age:0,phase:0,biome:state.biome},c)).slice(0,ECO_CONFIG.maxCarcasses):[];
-  state.weather=x.weather&&WEATHER.some(w=>w.id===x.weather.id)?Object.assign(makeWeather(x.weather.id),x.weather):makeWeather();
-  state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});state.lineageActions=Object.assign(b.lineageActions,x.lineageActions||{});
-  state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
-  state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);
-  state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));
-  state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};
-  return true;
- }catch(e){return false}
+ const keys=[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS];
+ for(const sourceKey of keys){
+  const raw=localStorage.getItem(sourceKey);if(!raw)continue;
+  try{
+   const b=fresh(),x=JSON.parse(raw);state=Object.assign(b,x);
+   state.axes=Object.assign(b.axes,x.axes||{});Object.keys(AXES).forEach(a=>state.axes[a]=Math.max(1,Number(state.axes[a])||1));
+   state.pressures=Object.assign(b.pressures,x.pressures||{});Object.keys(AXES).forEach(a=>state.pressures[a]=Math.max(0,Number(state.pressures[a])||0));
+   state.lifetimePressure=Object.assign(b.lifetimePressure,x.lifetimePressure||{});Object.keys(AXES).forEach(a=>state.lifetimePressure[a]=Math.max(0,Number(state.lifetimePressure[a])||0));
+   state.inventory=Object.assign(b.inventory,x.inventory||{});Object.keys(FOOD).forEach(k=>state.inventory[k]=Math.max(0,Math.floor(Number(state.inventory[k])||0));
+   const validPathways=new Set(BIOCHEMICAL_NODES.map(n=>pathwayKey(n.resource,n.threshold)));state.discoveredPathways={};for(const [key,value] of Object.entries(x.discoveredPathways||{}))if(validPathways.has(key)&&value)state.discoveredPathways[key]=true;
+   state.dietMemory=Object.assign(b.dietMemory,x.dietMemory||{});Object.keys(FOOD).forEach(k=>state.dietMemory[k]=Math.max(0,Number(state.dietMemory[k])||0));
+   state.dietHistory=Array.isArray(x.dietHistory)?x.dietHistory.filter(t=>FOOD[t]).slice(-12):[];state.nutritionSequence=Array.isArray(x.nutritionSequence)?x.nutritionSequence.filter(t=>FOOD[t]).slice(-8):[];
+   state.metabolicState=x.metabolicState&&cuisineDefinition(x.metabolicState.id)?{id:x.metabolicState.id,meals:clamp(Math.floor(Number(x.metabolicState.meals)||0),0,20)}:null;
+   const migratedDisorder=Object.values(METABOLIC_DISORDERS).find(d=>d.id===x.metabolicDisorder?.id);state.metabolicDisorder=migratedDisorder?{id:migratedDisorder.id,meals:clamp(Math.floor(Number(x.metabolicDisorder.meals)||0),0,20),signature:String(x.metabolicDisorder.signature||"")}:null;
+   state.discoveredCuisine=Array.isArray(x.discoveredCuisine)?[...new Set(x.discoveredCuisine.filter(id=>cuisineDefinition(id)))]:[];state.cuisineReinforcement={};for(const [id,value] of Object.entries(x.cuisineReinforcement||{}))if(cuisineDefinition(id))state.cuisineReinforcement[id]=clamp(Math.floor(Number(value)||0),0,5);state.lastCuisineSignature=String(x.lastCuisineSignature||"");state.cuisinePatternLatch=cuisineDefinition(x.cuisinePatternLatch)?x.cuisinePatternLatch:"";state.encounter=null;state.atlasView=Object.assign(b.atlasView,x.atlasView||{});sanitizeAtlasView();
+   state.genes=Array.isArray(x.genes)?[...new Set(x.genes.filter(g=>ATLAS.some(n=>n.id===g)))]:[];
+   if(!ORIGINS.some(o=>o.id===state.origin))state.origin=null;const origin=ORIGINS.find(o=>o.id===state.origin);if(origin&&!state.genes.includes(origin.gene))state.genes.unshift(origin.gene);
+   state.level=Math.max(1,Math.floor(Number(state.level)||1));state.mass=Math.max(.2,Number(state.mass)||1);state.generation=Math.max(1,Math.floor(Number(state.generation)||1));state.energy=clamp(Number(state.energy)||0);state.water=clamp(Number(state.water)||0);state.health=clamp(Number(state.health)||0);
+   state.resources=Array.isArray(x.resources)?x.resources.filter(r=>r&&FOOD[r.type]&&Number.isFinite(r.x)&&Number.isFinite(r.y)).map(r=>Object.assign({phase:0},r)):[];
+   state.organisms=Array.isArray(x.organisms)?x.organisms.filter(o=>o&&Number.isFinite(o.x)&&Number.isFinite(o.y)).map(o=>Object.assign(makeOrganism(),o,{module:moduleById(o.module)?o.module:null,defense:ORGANISM_DEFENSES[o.defense]?o.defense:"mucus",stuck:Math.max(0,Number(o.stuck)||0),stunned:Math.max(0,Number(o.stunned)||0),flash:0})):[];
+   state.symbionts=Array.isArray(x.symbionts)?x.symbionts.filter(id=>moduleById(id)).slice(0,6):[];state.effects=Array.isArray(x.effects)?x.effects.filter(e=>e&&EFFECT_TYPES[e.type]&&[e.x,e.y,e.radius,e.life].every(Number.isFinite)).map(e=>Object.assign({power:1,owner:"player",phase:0},e)):[];
+   state.niches=Array.isArray(x.niches)?x.niches.filter(n=>n&&Number.isFinite(n.x)&&Number.isFinite(n.y)&&Number.isFinite(n.biome)).map(n=>Object.assign({strength:0,rests:0,type:"MUCUS NEST",milestones:[]},n,{strength:clamp(Number(n.strength)||0),rests:Math.max(0,Number(n.rests)||0),milestones:Array.isArray(n.milestones)?n.milestones.filter(v=>[10,25,50,75,100].includes(v)):[]})):[];
+   state.patches=Array.isArray(x.patches)?x.patches.filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)).map(p=>Object.assign(makePatch("microbial",p.x,p.y),p)).slice(0,ECO_CONFIG.maxPatches):[];state.carcasses=Array.isArray(x.carcasses)?x.carcasses.filter(c=>c&&Number.isFinite(c.x)&&Number.isFinite(c.y)&&Number.isFinite(c.nutrition)).map(c=>Object.assign({age:0,phase:0,biome:state.biome},c)).slice(0,ECO_CONFIG.maxCarcasses):[];
+   state.weather=x.weather&&WEATHER.some(w=>w.id===x.weather.id)?Object.assign(makeWeather(x.weather.id),x.weather):makeWeather();state.camera=Object.assign(b.camera,x.camera||{}, {eventX:null,eventY:null,eventTimer:0});state.ecosystem=Object.assign(b.ecosystem,x.ecosystem||{});state.lineageActions=Object.assign(b.lineageActions,x.lineageActions||{});
+   state.particles=[];state.ambient=[];state.interactionTarget=null;state.buildVersion=BUILD_VERSION;state.saveSchema=SAVE_SCHEMA;state.migrationReport=sourceKey===SAVE_KEY?"Current save verified · schema 4":sourceKey===BACKUP_SAVE_KEY?"Recovered from rolling backup · schema 4":`Migrated from ${sourceKey} · schema 4`;state.logs=Array.isArray(x.logs)?x.logs.slice(0,120):[];
+   state.completedEpochs=Number.isFinite(x.completedEpochs)?x.completedEpochs:Math.max(0,(x.genes||[]).length-1);state.pendingEpochs=Math.max(0,Math.floor(Number.isFinite(x.pendingEpochs)?x.pendingEpochs:(x.epochPending?1:0)));state.target=null;state.mode="observe";state.epochForecast=[];state.epochFeed={};checkDevelopmentalThresholds(false);return true;
+  }catch(e){try{localStorage.setItem(`${SAVE_KEY}-corrupt-${sourceKey}-${Date.now()}`,raw)}catch{}}
+ }
+ return false
 }
 function renderOrigins(){$("originChoices").innerHTML=ORIGINS.map(o=>`<button class="origin-choice" data-origin="${o.id}"><b style="color:${o.color}">${o.name}</b><span>${o.desc}</span><small><strong>Permanent architecture:</strong> ${o.legacy}<br><strong>Begins:</strong> ${o.gene}; ${Object.entries(o.axes).map(([a,v])=>`+${v} ${AXES[a].name}`).join(", ")}<br><strong>Possible identities:</strong> ${o.paths.join(" · ")}</small></button>`).join("");document.querySelectorAll("[data-origin]").forEach(b=>b.onclick=()=>chooseOrigin(b.dataset.origin))}
 function start(newLineage=false){
- if(newLineage){[SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
- if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
+ if(newLineage){[SAVE_KEY,BACKUP_SAVE_KEY,LEGACY_SAVE_KEY,...OLDER_SAVE_KEYS].forEach(k=>localStorage.removeItem(k));state=fresh()}else load();
+ checkDevelopmentalThresholds(false);if(!state.resources.length)spawnFood(ECO_CONFIG.targetFood);if(!state.organisms.length)populate();$("start").classList.remove("visible");renderAll();
  if(!state.origin){renderOrigins();$("originModal").classList.add("visible")}else if(state.pendingEpochs>0)setTimeout(openEpoch,500)
 }
 export function createGameRuntime(engine){
